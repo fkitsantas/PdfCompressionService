@@ -1,5 +1,6 @@
 package com.uk.noonans.pdfcompressionservice;
 
+import java.awt.Graphics2D;
 import java.io.*;
 import java.awt.image.BufferedImage;
 import javax.imageio.*;
@@ -19,6 +20,9 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @RestController
 public class PdfCompressionService {
+
+    private static final int MAX_WIDTH = 1000;
+    private static final int MAX_HEIGHT = 1000;
 
     /**
      * This method handles POST requests to compress a PDF file.
@@ -51,7 +55,38 @@ public class PdfCompressionService {
 
                 // Get the image and convert it to RGB
                 BufferedImage original = image.getImage();
+
+                // Check if the width or height of the image exceeds the maximum allowed dimensions
+                if (image.getWidth() > MAX_WIDTH || image.getHeight() > MAX_HEIGHT) {
+
+                    // Initialize newWidth and newHeight with the original dimensions
+                    int newWidth = image.getWidth();
+                    int newHeight = image.getHeight();
+
+                    // Check if the image is in a landscape or portrait format
+                    if (image.getWidth() > image.getHeight()) { // landscape
+                        newWidth = MAX_WIDTH;
+                        newHeight = (int)(newWidth * image.getHeight() / image.getWidth());
+                    } else { // portrait
+                        newHeight = MAX_HEIGHT;
+                        newWidth = (int)(newHeight * image.getWidth() / image.getHeight());
+                    }
+
+                    // Create new BufferedImage to hold resized image
+                    BufferedImage resized = new BufferedImage(newWidth, newHeight, original.getType());
+
+                    // Draw original image into resized image
+                    Graphics2D g = resized.createGraphics();
+                    g.drawImage(original, 0, 0, newWidth, newHeight, null);
+
+                    // Set original to resized version
+                    original = resized;
+
+                }
+
+                // Create new BufferedImage for RGB conversion
                 BufferedImage rgb = new BufferedImage(original.getWidth(), original.getHeight(), BufferedImage.TYPE_INT_RGB);
+                // Draw resized original image into RGB version
                 rgb.createGraphics().drawImage(original, 0, 0, null);
 
                 // Prepare to write the optimized image to a byte array
