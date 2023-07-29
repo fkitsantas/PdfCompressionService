@@ -94,7 +94,7 @@ Open a terminal window and navigate to the location where you downloaded the JAR
 ```bash
 java -jar pdfcompression-0.0.1-SNAPSHOT.jar
 ```
-### Step 3: Post your .pdf file using the terminal to the microservice.
+### Step 3: Post a .pdf file using the terminal to the microservice to test it.
 
 ```bash
 curl -X POST -F 'file=@/Users/User/sample.pdf' http://localhost:7777/compressPdf --output compressed.pdf'
