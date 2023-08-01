@@ -1,0 +1,41 @@
+<component name="libraryTable">
+  <library name="springframework.spring.webmvc" type="repository">
+    <properties maven-id="org.springframework:spring-webmvc:6.0.3" />
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/spring-webmvc-6.0.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-aop-6.0.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-beans-6.0.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-context-6.0.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-core-6.0.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-jcl-6.0.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-expression-6.0.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-web-6.0.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/micrometer-observation-1.10.2.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/micrometer-commons-1.10.2.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$PROJECT_DIR$/lib/spring-webmvc-6.0.3-javadoc.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-aop-6.0.3-javadoc.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-beans-6.0.3-javadoc.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-context-6.0.3-javadoc.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-core-6.0.3-javadoc.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-jcl-6.0.3-javadoc.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-expression-6.0.3-javadoc.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-web-6.0.3-javadoc.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/micrometer-observation-1.10.2-javadoc.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/micrometer-commons-1.10.2-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/lib/spring-webmvc-6.0.3-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-aop-6.0.3-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-beans-6.0.3-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-context-6.0.3-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-core-6.0.3-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-jcl-6.0.3-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-expression-6.0.3-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/spring-web-6.0.3-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/micrometer-observation-1.10.2-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/micrometer-commons-1.10.2-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

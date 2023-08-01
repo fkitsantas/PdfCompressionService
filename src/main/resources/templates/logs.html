@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Logs</title>
+    <style>
+        /* Global styles for the page */
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        /* Styles for the columns that will hold the output and error logs */
+        .columns {
+            display: flex;
+        }
+
+        .left, .right {
+            flex: 1;
+            width: 50%;
+            height: 80vh; /* Adjust this value to your needs */
+        }
+
+        /* Styles for the iframes that will display the output and error logs */
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            overflow-y: auto; /* Allows vertical scrolling when content overflows */
+            overflow-x: auto; /* Allows horizontal scrolling when content overflows */
+        }
+    </style>
+    <script>
+        /* Function to load logs into iframes */
+        function loadLogs() {
+            // Get content from hidden divs
+            var outputContent = document.getElementById('outputContent').textContent;
+            var errorContent = document.getElementById('errorContent').textContent;
+
+            // Replace newline characters with HTML line breaks
+            outputContent = outputContent.replace(/\n/g, '<br>');
+            errorContent = errorContent.replace(/\n/g, '<br>');
+
+            // Get iframes
+            var outputFrame = document.getElementById('outputFrame');
+            var errorFrame = document.getElementById('errorFrame');
+
+            // Set content in iframes
+            if (outputFrame) {
+                outputFrame.srcdoc = '<html><body style="overflow:auto;height:100%">' + outputContent + '</body></html>';
+            }
+
+            if (errorFrame) {
+                errorFrame.srcdoc = '<html><body style="overflow:auto;height:100%">' + errorContent + '</body></html>';
+            }
+        }
+
+        /* Load logs when the page initially loads */
+        window.onload = function() {
+            loadLogs();
+        };
+    </script>
+</head>
+<body>
+<!-- Hidden divs to store the log content -->
+<div id="outputContent" style="display:none" th:text="${outputLog}"></div>
+<div id="errorContent" style="display:none" th:text="${errorLog}"></div>
+
+<!-- Columns to display the logs -->
+<div class="columns">
+
+    <!-- Left column for output log -->
+    <div class="left">
+        <h1>Output Log</h1>
+        <iframe id="outputFrame"></iframe>
+    </div>
+
+    <!-- Right column for error log -->
+    <div class="right">
+        <h1>Error Log</h1>
+        <iframe id="errorFrame"></iframe>
+    </div>
+
+</div>
+</body>
+</html>
