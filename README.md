@@ -90,7 +90,7 @@ The service will be available at `http://localhost:7777`.
 
 To compress a PDF file, make a POST request to `http://localhost:7777/compressPdf` with the file in the request body.
 
-To view the logs, make a GET request to `http://localhost:7777/logs`.
+To view the logs, visit `http://localhost:7777/logs`.
 
 ## Quick Start Guide
 
