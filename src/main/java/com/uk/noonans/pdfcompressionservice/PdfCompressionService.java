@@ -34,7 +34,6 @@ public class PdfCompressionService {
      * It reads the file, optimizes the images in the file, and returns the optimized file.
      *
      * @param file    The PDF file to be compressed.
-     * @param request The HttpServletRequest containing request details.
      * @return A ResponseEntity containing the compressed PDF file.
      * @throws IOException If an I/O error occurs.
      */
