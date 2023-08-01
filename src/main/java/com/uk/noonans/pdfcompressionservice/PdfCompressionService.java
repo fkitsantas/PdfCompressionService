@@ -39,11 +39,11 @@ public class PdfCompressionService {
      * @throws IOException If an I/O error occurs.
      */
     @PostMapping("/compressPdf")
-    public ResponseEntity<InputStreamResource> compressPdf(MultipartFile file, HttpServletRequest request) {
+    public ResponseEntity<InputStreamResource> compressPdf(MultipartFile file) throws IOException {
 
         try {
             // Log the incoming request
-            logger.info("Received request from {}", request.getRemoteAddr());
+            logger.info("Received request to compress PDF file '{}'", file.getOriginalFilename());
 
             // Input validation
             if(file == null || file.isEmpty()) {
