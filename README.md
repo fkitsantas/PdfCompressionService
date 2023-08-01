@@ -84,13 +84,13 @@ A HTML page containing the output and error logs.
     mvn spring-boot:run
     ```
 
-The service will be available at `http://localhost:7777`.
+The service will be available at port 7777. Example: `http://localhost:7777`.
 
 ## Usage
 
 To compress a PDF file, make a POST request to `http://localhost:7777/compressPdf` with the file in the request body.
 
-To view the logs, visit `http://localhost:7777/logs`.
+To view the logs, visit: `http://localhost:7777/logs`
 
 ## Quick Start Guide
 
