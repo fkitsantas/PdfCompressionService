@@ -53,7 +53,38 @@ A HTML page containing the output and error logs.
 
 ## Setup
 
-... Rest of the documentation remains the same ...
+### Prerequisites
+
+- Java 8 or later
+- Maven
+
+### Project Setup
+
+1. Clone the repository:
+
+    ```bash
+    git clone https://github.com/fkitsantas/PdfCompressionService.git
+    ```
+
+2. Navigate to the project directory:
+
+    ```bash
+    cd PdfCompressionService
+    ```
+
+3. Build the project:
+
+    ```bash
+    mvn clean install
+    ```
+
+4. Run the application:
+
+    ```bash
+    mvn spring-boot:run
+    ```
+
+The service will be available at `http://localhost:7777`.
 
 ## Usage
 
