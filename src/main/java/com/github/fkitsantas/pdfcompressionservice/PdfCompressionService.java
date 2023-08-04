@@ -1,4 +1,4 @@
-package com.uk.noonans.pdfcompressionservice;
+package com.github.fkitsantas.pdfcompressionservice;
 
 import java.awt.Graphics2D;
 import java.io.*;
@@ -17,7 +17,6 @@ import org.springframework.http.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import javax.servlet.http.HttpServletRequest;
 
 /**
  * This class provides a RESTful API endpoint as a micro-service for compressing PDF files.
@@ -132,8 +131,11 @@ public class PdfCompressionService {
 
             // Get the length of the optimized PDF
             int length = optimizedPdf.length;
+            long optimizedSize = optimizedPdf.length;
 
             logger.info("Completed PDF compression request");
+            logger.info("Original size: {} bytes", file.getSize());
+            logger.info("Optimized size: {} bytes", optimizedSize);
 
             // Create an InputStreamResource from the byte array
             InputStreamResource resource = new InputStreamResource(new ByteArrayInputStream(optimizedPdf));

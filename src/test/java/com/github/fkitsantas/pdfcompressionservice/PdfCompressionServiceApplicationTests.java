@@ -1,4 +1,4 @@
-package com.uk.noonans.pdfcompressionservice;
+package com.github.fkitsantas.pdfcompressionservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

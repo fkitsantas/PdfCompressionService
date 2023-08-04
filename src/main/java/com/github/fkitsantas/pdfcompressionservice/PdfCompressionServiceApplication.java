@@ -1,4 +1,4 @@
-package com.uk.noonans.pdfcompressionservice;
+package com.github.fkitsantas.pdfcompressionservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
  * configures the Spring Boot application and logs the request mapping
  * information at startup.
  */
-@SpringBootApplication(scanBasePackages="com.uk.noonans.pdfcompressionservice")
+@SpringBootApplication(scanBasePackages="com.github.fkitsantas.pdfcompressionservice")
 public class PdfCompressionServiceApplication {
 
     private final RequestMappingHandlerMapping handlerMapping; // Used to access request mapping details
