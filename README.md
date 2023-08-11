@@ -20,20 +20,22 @@ This is a microservice that provides RESTful API endpoints for compressing PDF f
 
 This microservice is built using the following technologies:
 
-- **Spring Boot**: Java Framework used to create RESTful web service.
-- **Apache PDFBox**: Library used for handling PDF files.
+- **Spring Boot**: Java Framework used to create RESTful web services.
+- **Apache PDFBox**: Library used for handling and manipulating PDF files.
+- **SLF4J with Logback**: Logging framework to capture and display logs.
 
 ## Features
 
-- Compresses PDF files by optimizing the images in the file.
+- Compresses PDF files by optimizing the images and form objects in the file.
 - Returns the compressed PDF file as a download.
+- Detailed logging to monitor the compression process and diagnose any issues.
 - Provides an endpoint to view the logs of the service.
 
 ## API Description
 
 ### POST /compressPdf
 
-Compresses a PDF file.
+Compresses a PDF file by optimizing its images and form objects.
 
 #### Parameters
 
@@ -45,11 +47,11 @@ A compressed PDF file.
 
 ### GET /logs
 
-Fetches the logs of the service.
+Provides an HTML page with the logs of the service.
 
 #### Returns
 
-A HTML page containing the output and error logs.
+An HTML page containing the output and error logs.
 
 ## Setup
 
@@ -98,7 +100,7 @@ If you are not familiar with compiling and running Java applications from source
 
 ### Step 1: Download the JAR file
 
-First, download the [pre-compiled JAR file](https://github.com/fkitsantas/PdfCompressionService/releases/download/v.0.0.3/PdfCompressionService-0.0.3.zip), which is provided in a zipped format, and then unzip it into a folder.
+First, download the [pre-compiled JAR file](https://github.com/fkitsantas/PdfCompressionService/releases/download/v.0.0.7/PdfCompressionService-0.0.3.zip), which is provided in a zipped format, and then unzip it into a folder.
 
 ### Step 2: Run the JAR file
 
@@ -110,8 +112,9 @@ java -jar PdfCompressionService.jar
 ### Step 3: Use the terminal to post a .pdf file to the microservice for testing.
 
 ```bash
-curl -X POST -F 'file=@/Users/User/sample.pdf' http://localhost:7777/compressPdf --output compressed.pdf'
+curl -X POST -F 'file=@/path/to/your/sample.pdf' http://localhost:7777/compressPdf --output compressed.pdf
 ```
+Replace `/path/to/your/sample.pdf` with the actual path to your PDF file.
 
 ## License
 

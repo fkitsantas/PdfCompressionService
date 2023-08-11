@@ -9,7 +9,7 @@
     </parent>
     <groupId>com.github.fkitsantas</groupId>
     <artifactId>PdfCompressionService</artifactId>
-    <version>0.0.3</version>
+    <version>0.0.7</version>
     <name>com.github.fkitsantas.pdfcompressionservice.PdfCompressionService</name>
     <description>com.github.fkitsantas.pdfcompressionservice.PdfCompressionService</description>
     <properties>
