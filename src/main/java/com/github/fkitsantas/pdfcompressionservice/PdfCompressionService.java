@@ -56,12 +56,13 @@ public class PdfCompressionService {
         //Log when compression starts and the file name
         logger.info("Starting PDF compression process for file: {}", file.getOriginalFilename());
 
-        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            try (ByteArrayInputStream in = new ByteArrayInputStream(file.getBytes())) {
-                PDDocument doc = PDDocument.load(in);
-                logger.info("Loaded PDF document with {} pages", doc.getNumberOfPages());
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+             ByteArrayInputStream in = new ByteArrayInputStream(file.getBytes());
+             PDDocument doc = PDDocument.load(in)) {
 
-                // Iterate through each page of the PDF
+            logger.info("Loaded PDF document with {} pages", doc.getNumberOfPages());
+
+            // Iterate through each page of the PDF
                 for (PDPage page : doc.getPages()) {
                     PDResources resources = page.getResources();
 
@@ -142,43 +143,37 @@ public class PdfCompressionService {
                 }
                 // Save the optimized PDF to the byte array and close the document
                 doc.save(out);
-                doc.close();
                 logger.info("Saved compressed PDF document");
 
+                // Get the byte array of the optimized PDF
+                byte[] optimizedPdf = out.toByteArray();
+
+                // Get the length of the optimized PDF
+                int length = optimizedPdf.length;
+                long optimizedSize = optimizedPdf.length;
+
+                logger.info("Completed PDF compression request");
+                logger.info("Original size: {} bytes", file.getSize());
+                logger.info("Optimized size: {} bytes", optimizedSize);
+
+                // Create an InputStreamResource from the byte array
+                InputStreamResource resource = new InputStreamResource(new ByteArrayInputStream(optimizedPdf));
+
+                // Prepare the headers for the response
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_PDF);
+                headers.setContentDispositionFormData("optimized.pdf", "attachment; filename=optimized.pdf");
+
+                // Return the optimized PDF in the response
+                return ResponseEntity
+                        .ok()
+                        .headers(headers)
+                        .contentLength(length)
+                        .body(resource);
+
             } catch (IOException e) {
-                logger.error("Error compressing PDF", e);
+                logger.error("I/O error compressing PDF", e);
                 return ResponseEntity.status(500).build();
-            }
-
-            // Get the byte array of the optimized PDF
-            byte[] optimizedPdf = out.toByteArray();
-
-            // Get the length of the optimized PDF
-            int length = optimizedPdf.length;
-            long optimizedSize = optimizedPdf.length;
-
-            logger.info("Completed PDF compression request");
-            logger.info("Original size: {} bytes", file.getSize());
-            logger.info("Optimized size: {} bytes", optimizedSize);
-
-            // Create an InputStreamResource from the byte array
-            InputStreamResource resource = new InputStreamResource(new ByteArrayInputStream(optimizedPdf));
-
-            // Prepare the headers for the response
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("optimized.pdf", "attachment; filename=optimized.pdf");
-
-            // Return the optimized PDF in the response
-            return ResponseEntity
-                    .ok()
-                    .headers(headers)
-                    .contentLength(length)
-                    .body(resource);
-
-        } catch (IOException e) {
-            logger.error("I/O error compressing PDF", e);
-            return ResponseEntity.status(500).build();
         }
     }
 
