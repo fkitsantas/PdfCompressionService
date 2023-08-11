@@ -100,7 +100,7 @@ If you are not familiar with compiling and running Java applications from source
 
 ### Step 1: Download the JAR file
 
-First, download the [pre-compiled JAR file](https://github.com/fkitsantas/PdfCompressionService/releases/download/v.0.0.7/PdfCompressionService-0.0.3.zip), which is provided in a zipped format, and then unzip it into a folder.
+First, download the [pre-compiled JAR file](https://github.com/fkitsantas/PdfCompressionService/releases/download/v.0.0.7/PdfCompressionService.jar.zip), which is provided in a zipped format, and then unzip it into a folder.
 
 ### Step 2: Run the JAR file
 
