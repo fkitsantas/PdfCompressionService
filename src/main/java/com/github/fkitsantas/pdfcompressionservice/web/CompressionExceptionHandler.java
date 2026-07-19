@@ -19,7 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * Translates {@code /compressPdf} failures into a stable JSON {@link ApiError}
  * body instead of a bare status code with no explanation (or, worse, the
  * historical bare {@code 500} with an empty body). Full exception details
- * (including stack traces) go to the server log only - the response body
+ * (including stack traces) go to the server log only, the response body
  * never leaks internals, just a client-safe message and the correlation id.
  *
  * <p>The request id is normally the one the controller generated and stashed

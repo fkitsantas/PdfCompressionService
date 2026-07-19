@@ -25,14 +25,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>Deliberately avoids wall-clock timing. Boundedness is proven two ways:
  * <ol>
- *   <li>a structural check - the exposed {@link PdfCompressionEngine#getImageProcessingExecutor()}
+ *   <li>a structural check, the exposed {@link PdfCompressionEngine#getImageProcessingExecutor()}
  *       is (when it is a {@link ThreadPoolExecutor}, which the reference
  *       skeleton's is) sized exactly to the configured parallelism;</li>
- *   <li>a behavioural check - after firing {@link #CONCURRENT_REQUESTS} truly
+ *   <li>a behavioural check, after firing {@link #CONCURRENT_REQUESTS} truly
  *       simultaneous {@code compress(...)} calls (gated by a
  *       {@link CountDownLatch}) at the ONE shared engine, the number of
  *       distinct {@code pdf-img-*} worker threads observed is non-zero (real
- *       work happened) and never exceeds the configured parallelism - i.e.
+ *       work happened) and never exceeds the configured parallelism, i.e.
  *       it does not grow with the number of concurrent requests, which is
  *       what would happen if the implementation created a fresh executor (or
  *       raw threads) per request instead of reusing the one shared pool.</li>
@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * executor, so no {@code pdf-img-*} thread is ever created and the
  * non-empty check in step 2 fails. The pool-size check in step 1 may
  * incidentally already pass (the executor is correctly sized even though
- * unused) - that alone must not be read as "parallelism is implemented".
+ * unused), that alone must not be read as "parallelism is implemented".
  */
 class BoundedImageProcessingExecutorTest {
 

@@ -141,8 +141,8 @@ public class PdfCompressionProperties {
      * Number of worker threads {@link PdfCompressionEngine} dedicates to
      * per-image resize/encode work (decode and attach stay on the calling
      * thread; see the engine's class Javadoc). {@code 0} (the default) means
-     * "auto" and is resolved at the point of use - see
-     * {@link #resolveParallelism()} - to {@link Runtime#availableProcessors()}.
+     * "auto" and is resolved at the point of use, see
+     * {@link #resolveParallelism()}, to {@link Runtime#availableProcessors()}.
      * Negative values are rejected outright; there is no "disable
      * parallelism" magic number, use {@code 1} for that.
      */
@@ -193,7 +193,7 @@ public class PdfCompressionProperties {
      * the servlet container no longer caps how many requests run at once, so
      * without this a burst of large uploads could exhaust the heap. Excess
      * requests block (they do not fail) until a permit frees up. {@code 0} (the
-     * default) means "auto" - resolved by {@link #resolveMaxConcurrentCompressions()}
+     * default) means "auto", resolved by {@link #resolveMaxConcurrentCompressions()}
      * to a generous multiple of the CPU count. Must be {@code >= 0}.
      */
     public int getMaxConcurrentCompressions() {

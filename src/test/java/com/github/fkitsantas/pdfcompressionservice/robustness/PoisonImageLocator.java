@@ -16,7 +16,7 @@ import com.github.fkitsantas.pdfcompressionservice.fixtures.InvoiceCorpusFactory
 
 /**
  * Test-only utility: locates and fingerprints the deliberately-undecodable
- * ("poison") image XObjects the robustness fixtures embed - see {@link
+ * ("poison") image XObjects the robustness fixtures embed, see {@link
  * InvoiceCorpusFactory#embedRawImageXObject}. A poison image is identified
  * unambiguously by its {@code /Filter} name ({@link InvoiceCorpusFactory#UNDECODABLE_IMAGE_FILTER}):
  * no normally-produced image in this test suite ever carries {@code
@@ -49,7 +49,7 @@ final class PoisonImageLocator {
         return InvoiceCorpusFactory.UNDECODABLE_IMAGE_FILTER.equals(filterItem);
     }
 
-    /** Raw (undecoded/as-filtered) stream bytes - the exact bytes a byte-for-byte "untouched" check must compare. */
+    /** Raw (undecoded/as-filtered) stream bytes, the exact bytes a byte-for-byte "untouched" check must compare. */
     static byte[] rawEncodedBytes(PDImageXObject image) throws IOException {
         try (InputStream in = ((COSStream) image.getCOSObject()).createRawInputStream()) {
             return in.readAllBytes();

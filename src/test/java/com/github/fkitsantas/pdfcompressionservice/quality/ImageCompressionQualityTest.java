@@ -12,7 +12,7 @@ import com.github.fkitsantas.pdfcompressionservice.fixtures.InvoiceCorpusFactory
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Compression-ratio quality gate for image-bearing invoices - the documents
+ * Compression-ratio quality gate for image-bearing invoices, the documents
  * that actually matter for size (e.g. Claris FileMaker Pro exports where an
  * embedded scan/photo/container image is the bulk of the payload). Text-only
  * pages are intentionally out of scope here: vector text is never rasterised,

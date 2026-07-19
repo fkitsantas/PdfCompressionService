@@ -13,10 +13,10 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.util.Matrix;
 
 /**
- * Walks a page's content stream - including any nested Form XObjects, which
+ * Walks a page's content stream, including any nested Form XObjects, which
  * {@link org.apache.pdfbox.contentstream.PDFStreamEngine} recurses into
  * automatically whenever it encounters a {@code Do} operator invoking a
- * form - to record, for every distinct image XObject actually drawn, the
+ * form, to record, for every distinct image XObject actually drawn, the
  * maximum size (in PDF points) it is ever rendered at across the page.
  *
  * <p>This is read-only analysis: no content stream is modified. The

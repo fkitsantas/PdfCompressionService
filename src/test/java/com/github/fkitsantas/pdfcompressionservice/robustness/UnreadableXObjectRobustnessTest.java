@@ -18,8 +18,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  * Robustness for the image-discovery phase (which runs outside the per-image
  * pipeline): an XObject with an invalid {@code /Subtype} makes
  * {@code PDResources.getXObject(name)} throw during discovery. That failure
- * must be isolated to the offending entry - {@code compress()} must still
- * succeed, preserve the page, and optimise the valid sibling image - rather
+ * must be isolated to the offending entry, {@code compress()} must still
+ * succeed, preserve the page, and optimise the valid sibling image, rather
  * than surfacing as an HTTP 500. Complements the decode-phase robustness tests
  * (undecodable image), which cover the per-image pipeline.
  */

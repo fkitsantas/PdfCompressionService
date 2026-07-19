@@ -27,14 +27,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p><b>This test is RED by design</b> against the current skeleton:
  * {@link PdfCompressionEngine#compress} does not yet dispatch any work to
- * {@link PdfCompressionEngine#getImageProcessingExecutor()} - the per-image
+ * {@link PdfCompressionEngine#getImageProcessingExecutor()}, the per-image
  * loop is still fully sequential regardless of the configured parallelism.
  * Two things fail as a result:
  * <ol>
  *   <li>the "real parallel work happened" thread-usage check at the end of
  *       this test (zero {@code pdf-img-*} threads are ever created, since
  *       {@code ThreadPoolExecutor} creates worker threads lazily only when a
- *       task is actually submitted) - this is what proves the test isn't
+ *       task is actually submitted), this is what proves the test isn't
  *       vacuously green just because parallelism is currently a no-op;</li>
  *   <li>once the implementer wires real parallel dispatch, any bug that
  *       makes concurrent per-image work non-deterministic (e.g. sharing a
@@ -70,7 +70,7 @@ class ParallelismDeterminismTest {
                 serialResult.getCompressedPdf(), parallelResult.getCompressedPdf(), PAGE_COUNT);
 
         // Proves the parallel engine actually used its executor for this
-        // call - i.e. that the equivalence assertions above are a genuine
+        // call, i.e. that the equivalence assertions above are a genuine
         // parallel-vs-serial comparison, not two runs of the same
         // (currently unparallelized) code path that trivially agree.
         Set<String> newWorkerThreads = ThreadNameProbe.newNamesWithPrefix(

@@ -34,14 +34,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * functionally equivalent (see {@link CompressionEquivalence}) to a serial
  * baseline computed independently for that same input. This is what proves
  * the shared bounded executor introduces no cross-request corruption or
- * races - a stricter, request-isolation-focused sibling of
+ * races, a stricter, request-isolation-focused sibling of
  * {@link ParallelismDeterminismTest}, which only exercises a single request.
  *
  * <p><b>RED by design</b>, for the same reason as {@link ParallelismDeterminismTest}:
  * the skeleton engine never dispatches work to
  * {@link PdfCompressionEngine#getImageProcessingExecutor()}, so the
- * thread-usage assertion at the end of this test - proof that the SHARED
- * executor was actually exercised under concurrent load - fails.
+ * thread-usage assertion at the end of this test, proof that the SHARED
+ * executor was actually exercised under concurrent load, fails.
  */
 class SharedEngineConcurrentLoadTest {
 

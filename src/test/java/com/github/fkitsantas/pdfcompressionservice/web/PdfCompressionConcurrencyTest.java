@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * <p>Expected to fail against the current controller because of the same
  * {@code Content-Disposition} defect covered in
  * {@link PdfCompressionControllerContractTest#returnsPdfWithCorrectContentTypeDispositionAndLength()}
- * - every concurrent response carries the same malformed header.
+ *, every concurrent response carries the same malformed header.
  */
 @SpringBootTest
 @AutoConfigureMockMvc

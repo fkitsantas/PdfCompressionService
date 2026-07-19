@@ -45,7 +45,7 @@ import org.apache.pdfbox.util.Matrix;
  * Builds small, deterministic, in-memory PDF fixtures ("invoice corpus")
  * used across the compression test suite. Every fixture is produced with
  * real PDFBox 3 APIs so downstream tests exercise the same code paths the
- * production engine will run against - nothing here is mocked.
+ * production engine will run against, nothing here is mocked.
  *
  * <p>This is a test utility (no {@code @Test} methods); it is intentionally
  * placed outside the {@code compression}/{@code web} packages so it can be
@@ -90,7 +90,7 @@ public final class InvoiceCorpusFactory {
      * A modest 300x200 image stretched across nearly a full A4 page, giving
      * an effective DPI (~36) well *below* any sane target DPI (e.g. the
      * default 150). The engine must never upscale to "reach" the target
-     * DPI - this fixture lets tests assert the no-enlarge rule: pixel
+     * DPI, this fixture lets tests assert the no-enlarge rule: pixel
      * dimensions must come out unchanged (or smaller), never larger.
      */
     public static byte[] lowEffectiveDpiImage() throws IOException {
@@ -317,7 +317,7 @@ public final class InvoiceCorpusFactory {
             doc.addPage(page);
             // 320x240 at moderate quality clears both minDimension (16px) and
             // minByteSize (8192 bytes) comfortably, while sitting at ~72 effective
-            // DPI on an A4 page - i.e. it is a legitimate optimization candidate on
+            // DPI on an A4 page, i.e. it is a legitimate optimization candidate on
             // size alone, but already efficiently encoded, so recompression should
             // yield negligible-to-no further benefit.
             byte[] rawJpeg = encodeRawJpeg(syntheticPhotographicImage(320, 240), 0.6f);
@@ -602,7 +602,7 @@ public final class InvoiceCorpusFactory {
     /**
      * Embeds a raw image XObject built directly from caller-supplied bytes,
      * tagged with an explicit PDF {@code /Filter} name and {@code /ColorSpace}
-     * - with <b>no validation whatsoever</b> that the bytes are actually
+     *, with <b>no validation whatsoever</b> that the bytes are actually
      * valid data for that filter. This is exactly what lets robustness tests
      * construct a deterministically undecodable ("poison") image XObject: a
      * structurally valid PDF image dictionary (present in the resources,
@@ -611,7 +611,7 @@ public final class InvoiceCorpusFactory {
      * pixel data can never actually be decoded.
      *
      * <p>The returned {@link PDImageXObject} has not been drawn onto any page
-     * yet - place it exactly like any other image, e.g. via
+     * yet, place it exactly like any other image, e.g. via
      * {@code PDPageContentStream#drawImage}.
      */
     public static PDImageXObject embedRawImageXObject(PDDocument doc,
@@ -624,7 +624,7 @@ public final class InvoiceCorpusFactory {
         COSStream cosStream = doc.getDocument().createCOSStream();
         // The no-filter overload: writes rawBytes exactly as given, with no
         // encoding applied or validated. The /Filter entry set below is then
-        // a bare, and - for a poison fixture - deliberately false, claim
+        // a bare, and, for a poison fixture, deliberately false, claim
         // about how those bytes are supposed to be decoded.
         try (OutputStream out = cosStream.createOutputStream()) {
             out.write(rawBytes);
@@ -687,7 +687,7 @@ public final class InvoiceCorpusFactory {
     /**
      * A single document mixing several genuinely different image kinds -
      * photographic RGB, grayscale, 1-bit CCITT/bitonal, low-colour/indexed-
-     * style line art - with one undecodable "poison" image XObject, one per
+     * style line art, with one undecodable "poison" image XObject, one per
      * page, in this fixed order (pages 0-4). "Handle anything and
      * everything": every one of these must survive compression, either
      * optimized or passed through untouched, with none corrupted and no page
@@ -744,7 +744,7 @@ public final class InvoiceCorpusFactory {
      * A handful of large, flat colour bands: low colour-count, non-
      * photographic content (unlike {@link #syntheticPhotographicImage}), so
      * the engine's content classifier routes it down the lossless/indexed-
-     * friendly path rather than JPEG - useful purely as "one more distinct
+     * friendly path rather than JPEG, useful purely as "one more distinct
      * codec path" in the mixed-codec robustness corpus.
      */
     private static BufferedImage syntheticLowColorBlocksImage(int width, int height) {

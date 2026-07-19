@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
- * "We don't know what image types the PDF contains - handle anything and
+ * "We don't know what image types the PDF contains, handle anything and
  * everything": an image XObject that cannot be decoded (unsupported codec,
  * corrupt stream, exotic colour space PDFBox can't rasterize in this
  * runtime) must never take down the whole compression. It must be left
@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  *
  * <p>The fixture ({@link InvoiceCorpusFactory#mixedCorpusWithUndecodableImage()})
  * pairs one normal, large, optimizable photographic image with one
- * deliberately undecodable "poison" image XObject - see {@link
+ * deliberately undecodable "poison" image XObject, see {@link
  * InvoiceCorpusFactory#embedRawImageXObject} for how it's built and why
  * decode failure is deterministic (tagged {@code /JPXDecode}; this project
  * has no JPEG2000 codec on its classpath).
@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  * (which unconditionally calls {@code PDImageXObject#getImage()} once an
  * image clears the skip-gates) propagates as an {@code IOException}, which
  * {@code PdfCompressionEngine#compress} wraps and rethrows as {@code
- * PdfCompressionException} - which the web layer's {@code
+ * PdfCompressionException}, which the web layer's {@code
  * CompressionExceptionHandler} maps straight to HTTP 500. That aborts the
  * ENTIRE request over a single bad image. A correct implementation catches
  * per-image decode/optimize failures and falls back to the original XObject,

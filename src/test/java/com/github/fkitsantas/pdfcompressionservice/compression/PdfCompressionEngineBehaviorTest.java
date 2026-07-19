@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * is currently a stub that throws {@link UnsupportedOperationException}, so
  * every test below fails with that exception until the engine is
  * implemented. Do not "fix" these tests by catching or expecting that
- * exception - that would defeat the purpose of the failing spec.
+ * exception, that would defeat the purpose of the failing spec.
  */
 class PdfCompressionEngineBehaviorTest {
 
@@ -139,7 +139,7 @@ class PdfCompressionEngineBehaviorTest {
 
         CompressionResult result = engine.compress(original, "efficient.pdf", "req-already-efficient");
 
-        // It clears both thresholds, so the engine must inspect it - but
+        // It clears both thresholds, so the engine must inspect it, but
         // because it's already efficiently encoded, the candidate should not
         // grow the PDF (guarded by the larger-result policy).
         assertThat(result.getImagesInspected()).isEqualTo(1);

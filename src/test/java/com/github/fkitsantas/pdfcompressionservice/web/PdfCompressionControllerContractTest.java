@@ -37,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *       ({@code HttpHeaders.setContentDispositionFormData("optimized.pdf",
  *       "attachment; filename=optimized.pdf")} produces a
  *       {@code form-data; name="optimized.pdf"; filename="attachment;
- *       filename=optimized.pdf"} header - not an {@code attachment} at all);</li>
+ *       filename=optimized.pdf"} header, not an {@code attachment} at all);</li>
  *   <li>it blindly re-encodes every image as a JPEG, destroying transparency
  *       and corrupting non-RGB colour spaces;</li>
  *   <li>it mangles Form XObject content streams with a bogus run-length
