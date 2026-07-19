@@ -30,14 +30,11 @@ public class PdfCompressionProperties {
     /** Upper bound accepted for {@link #targetDpi}; generous enough for archival-quality scans. */
     private static final int MAX_TARGET_DPI = 2400;
 
-    /** Upper bound accepted for {@link #maxImageDimension}, in pixels. */
-    private static final int MAX_IMAGE_DIMENSION_CEILING = 20_000;
-
     /** Upper bound accepted for {@link #minDimension}, in pixels. */
     private static final int MAX_MIN_DIMENSION = 10_000;
 
     private int targetDpi = 150;
-    private int maxImageDimension = 3000;
+    private int maxImageDimension = 0;
     private float jpegQuality = 0.75f;
     private int minDimension = 16;
     private long minByteSize = 8192L;
@@ -59,14 +56,26 @@ public class PdfCompressionProperties {
         this.targetDpi = targetDpi;
     }
 
+    /**
+     * Optional hard cap, in pixels, on the longest edge of a re-encoded image.
+     * This is <b>not</b> a limit on what the service accepts: images of any
+     * resolution (e.g. 48-megapixel, 6000+px) are always accepted and
+     * processed. It only caps the <em>output</em> resolution as a safety net
+     * for the rare image whose on-page size cannot be determined; images drawn
+     * on a page are already reduced by the target-DPI downsampling well below
+     * any such cap.
+     *
+     * <p>Defaults to {@code 0}, meaning <b>no cap</b> - output resolution is
+     * governed solely by {@link #getTargetDpi()}. Set a positive value to
+     * additionally clamp the longest edge to that many pixels.
+     */
     public int getMaxImageDimension() {
         return maxImageDimension;
     }
 
     public void setMaxImageDimension(int maxImageDimension) {
-        Assert.isTrue(maxImageDimension >= 1 && maxImageDimension <= MAX_IMAGE_DIMENSION_CEILING,
-                () -> "pdf.compression.max-image-dimension must be between 1 and " + MAX_IMAGE_DIMENSION_CEILING
-                        + " but was " + maxImageDimension);
+        Assert.isTrue(maxImageDimension >= 0,
+                () -> "pdf.compression.max-image-dimension must be >= 0 (0 = no cap) but was " + maxImageDimension);
         this.maxImageDimension = maxImageDimension;
     }
 

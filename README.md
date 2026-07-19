@@ -168,7 +168,7 @@ All settings live in `src/main/resources/application.properties` and can be over
 | `spring.servlet.multipart.max-request-size` | `100MB` | maximum request size |
 | `pdf.compression.target-dpi` | `150` | target resolution images are downsampled toward |
 | `pdf.compression.jpeg-quality` | `0.75` | JPEG quality for photographic images (0.0–1.0) |
-| `pdf.compression.max-image-dimension` | `3000` | hard cap on any image edge, in pixels |
+| `pdf.compression.max-image-dimension` | `0` | optional cap on a re-encoded image's longest edge, in pixels (`0` = no cap; not an acceptance limit, any input size is processed) |
 | `pdf.compression.min-dimension` | `16` | images smaller than this (px) are left untouched |
 | `pdf.compression.min-byte-size` | `8192` | images encoded smaller than this (bytes) are skipped |
 | `pdf.compression.min-reduction-ratio` | `0.10` | a re-encode is only kept if it saves at least this fraction |

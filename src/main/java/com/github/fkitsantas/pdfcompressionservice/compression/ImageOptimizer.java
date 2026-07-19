@@ -312,11 +312,12 @@ final class ImageOptimizer {
 
     /**
      * Single uniform scale factor derived from the image's effective rendered
-     * DPI (the more demanding of the two axes), clamped by {@code
+     * DPI (the more demanding of the two axes), optionally clamped by {@code
      * maxImageDimension} and never allowed to exceed 1.0 (no enlarging).
      * When {@code usagePoints} is {@code null} (the image was never observed
      * being drawn, e.g. annotation-only), only the {@code maxImageDimension}
-     * cap applies.
+     * cap applies - and when that cap is {@code 0} (the default, no cap) such
+     * an image is left at full resolution.
      */
     private double computeScale(int origW, int origH, float[] usagePoints) {
         double scale = 1.0;
@@ -326,10 +327,11 @@ final class ImageOptimizer {
             double scaleY = (usagePoints[1] / 72.0 * targetDpi) / origH;
             scale = Math.min(scaleX, scaleY);
         }
-        double maxDimScale = Math.min(
-                (double) properties.getMaxImageDimension() / origW,
-                (double) properties.getMaxImageDimension() / origH);
-        scale = Math.min(scale, maxDimScale);
+        int cap = properties.getMaxImageDimension();
+        if (cap > 0) {
+            double maxDimScale = Math.min((double) cap / origW, (double) cap / origH);
+            scale = Math.min(scale, maxDimScale);
+        }
         return Math.min(scale, 1.0);
     }
 

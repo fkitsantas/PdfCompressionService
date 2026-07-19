@@ -25,7 +25,7 @@ class PdfCompressionPropertiesTest {
         PdfCompressionProperties props = new PdfCompressionProperties();
 
         assertThat(props.getTargetDpi()).isEqualTo(150);
-        assertThat(props.getMaxImageDimension()).isEqualTo(3000);
+        assertThat(props.getMaxImageDimension()).isEqualTo(0); // 0 = no cap
         assertThat(props.getJpegQuality()).isEqualTo(0.75f);
         assertThat(props.getMinDimension()).isEqualTo(16);
         assertThat(props.getMinByteSize()).isEqualTo(8192L);
@@ -50,14 +50,14 @@ class PdfCompressionPropertiesTest {
     }
 
     @Test
-    void maxImageDimensionAcceptsBoundsAndRejectsOutOfRange() {
+    void maxImageDimensionAllowsZeroForNoCapAnyPositiveAndRejectsNegative() {
         PdfCompressionProperties props = new PdfCompressionProperties();
 
+        props.setMaxImageDimension(0);       // 0 = no cap (the default)
         props.setMaxImageDimension(1);
-        props.setMaxImageDimension(20_000);
+        props.setMaxImageDimension(60_000);  // beyond a 48-megapixel edge; no artificial ceiling
 
-        assertThatIllegalArgumentException().isThrownBy(() -> props.setMaxImageDimension(0));
-        assertThatIllegalArgumentException().isThrownBy(() -> props.setMaxImageDimension(20_001));
+        assertThatIllegalArgumentException().isThrownBy(() -> props.setMaxImageDimension(-1));
     }
 
     @Test
