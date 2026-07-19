@@ -23,6 +23,9 @@
 hs_err_pid*
 replay_pid*
 
+# Maven build output
+/target/
+
 # Standalone bundle build output (jlink runtime + jpackage app image)
 /dist/
 
