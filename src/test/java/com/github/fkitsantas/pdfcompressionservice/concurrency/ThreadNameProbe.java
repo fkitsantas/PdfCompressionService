@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
  * {@code java.util.concurrent.ThreadPoolExecutor} creates its worker threads
  * lazily, only when a task is actually submitted, so the mere *existence* of
  * a {@code pdf-img-*} named thread after a {@code compress(...)} call is
- * proof that per-image work was dispatched to the executor - regardless of
+ * proof that per-image work was dispatched to the executor, regardless of
  * how fast/slow that work ran.
  *
  * <p>Surefire runs this project's test classes sequentially within a single

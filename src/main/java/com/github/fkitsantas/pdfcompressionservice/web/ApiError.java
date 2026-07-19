@@ -5,8 +5,8 @@ import java.time.Instant;
 /**
  * Stable JSON error body returned by {@link CompressionExceptionHandler}.
  *
- * <p>{@code message} is always a client-safe description - never a raw
- * stack trace or exception class name - and {@code requestId} echoes back
+ * <p>{@code message} is always a client-safe description, never a raw
+ * stack trace or exception class name, and {@code requestId} echoes back
  * the correlation id so a caller can cross-reference server-side logs.
  */
 public final class ApiError {

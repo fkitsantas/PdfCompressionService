@@ -33,32 +33,32 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
  * thread:
  *
  * <ol>
- *   <li>{@link #evaluateGate} - cheap, no-decode gate check (skip gates,
+ *   <li>{@link #evaluateGate}, cheap, no-decode gate check (skip gates,
  *       target dimensions, the bitonal "already sharp enough" shortcut).
  *       Safe to run for the whole document up front; touches only image
  *       metadata, never raster data.</li>
- *   <li>{@link #finishPlan} - decodes the image ({@link PDImageXObject#getImage()})
+ *   <li>{@link #finishPlan}, decodes the image ({@link PDImageXObject#getImage()})
  *       and classifies its codec path (bitonal / transparent / grayscale /
  *       photographic-or-line-art). Reads from the {@link PDDocument}'s
- *       backing stream, so - like {@link #evaluateGate} - it must stay on a
+ *       backing stream, so, like {@link #evaluateGate}, it must stay on a
  *       single thread; the engine only calls it for one in-flight batch at a
  *       time, never concurrently.</li>
- *   <li>{@link #transform} - pure CPU work (resize + encode) on an already-
+ *   <li>{@link #transform}, pure CPU work (resize + encode) on an already-
  *       decoded, doc-independent {@link BufferedImage}. Touches no
  *       {@link PDDocument} state at all, so the engine is free to run this on
  *       its shared executor.</li>
- *   <li>{@link #attach} - builds the replacement {@link PDImageXObject} via
+ *   <li>{@link #attach}, builds the replacement {@link PDImageXObject} via
  *       the PDFBox image factories (which allocate {@link COSStream}s against
  *       the document) and applies the size guard. Must run back on the
  *       document thread, in the original discovery order, to keep object
- *       numbering - and therefore {@code compressedBytes} - independent of
+ *       numbering, and therefore {@code compressedBytes}, independent of
  *       thread scheduling.</li>
  * </ol>
  *
  * <p>Every one of these four methods evaluates/produces exactly the same
  * decisions the original single-pass {@code process(PDDocument, PDImageXObject,
  * float[])} method used to: skip gates, {@code computeScale}, codec
- * selection and the size guard are unchanged - only the call shape changed,
+ * selection and the size guard are unchanged, only the call shape changed,
  * to let the engine phase the work.
  */
 final class ImageOptimizer {
@@ -81,7 +81,7 @@ final class ImageOptimizer {
      * and re-attached via {@code createFromStream} still round-trips as
      * {@link PDDeviceGray} (see {@code PdfCompressionEngineFidelityTest
      * #grayscaleImageStaysInDeviceGrayColorSpace}, which is green with this
-     * flag on) - documented here rather than silently assumed so a future
+     * flag on), documented here rather than silently assumed so a future
      * PDFBox upgrade regression is easy to bisect: flip to {@code false} and
      * re-run the fidelity suite if that ever stops being true.
      */
@@ -159,7 +159,7 @@ final class ImageOptimizer {
     }
 
     // ------------------------------------------------------------------
-    // Phase A (part 1) - cheap gate check, no decode
+    // Phase A (part 1), cheap gate check, no decode
     // ------------------------------------------------------------------
 
     GateResult evaluateGate(PDImageXObject original, float[] usagePoints) throws IOException {
@@ -189,7 +189,7 @@ final class ImageOptimizer {
     }
 
     // ------------------------------------------------------------------
-    // Phase A (part 2) - decode + classify (document thread, one image/batch at a time)
+    // Phase A (part 2), decode + classify (document thread, one image/batch at a time)
     // ------------------------------------------------------------------
 
     Planned finishPlan(GatePassed gate) throws IOException {
@@ -212,7 +212,7 @@ final class ImageOptimizer {
     }
 
     // ------------------------------------------------------------------
-    // Phase B - pure CPU resize/encode, no PDDocument access
+    // Phase B, pure CPU resize/encode, no PDDocument access
     // ------------------------------------------------------------------
 
     Transformed transform(Planned p) throws IOException {
@@ -254,7 +254,7 @@ final class ImageOptimizer {
     }
 
     // ------------------------------------------------------------------
-    // Phase C - attach to the document (document thread, original discovery order)
+    // Phase C, attach to the document (document thread, original discovery order)
     // ------------------------------------------------------------------
 
     Outcome attach(PDDocument doc, Planned planned, Transformed transformed) throws IOException {
@@ -315,7 +315,7 @@ final class ImageOptimizer {
      * DPI (the more demanding of the two axes), clamped by {@code
      * maxImageDimension} and never allowed to exceed 1.0 (no enlarging).
      * When {@code usagePoints} is {@code null} (the image was never observed
-     * being drawn - e.g. annotation-only), only the {@code maxImageDimension}
+     * being drawn, e.g. annotation-only), only the {@code maxImageDimension}
      * cap applies.
      */
     private double computeScale(int origW, int origH, float[] usagePoints) {
@@ -345,7 +345,7 @@ final class ImageOptimizer {
     }
 
     private boolean isGrayscale(BufferedImage decoded) {
-        // Covers DeviceGray, CalGray and ICCBased single-component gray - PDFBox decodes
+        // Covers DeviceGray, CalGray and ICCBased single-component gray, PDFBox decodes
         // all of them to a TYPE_GRAY raster. Indexed-colour images decode to RGB and are
         // therefore correctly excluded, keeping their colour instead of being flattened to
         // a grayscale JPEG.
@@ -371,13 +371,13 @@ final class ImageOptimizer {
     }
 
     // ------------------------------------------------------------------
-    // Off-document JPEG encoding (Phase B only - never touches a PDDocument)
+    // Off-document JPEG encoding (Phase B only, never touches a PDDocument)
     // ------------------------------------------------------------------
 
     /**
      * Encodes {@code image} to JPEG bytes via a freshly-obtained {@link
      * ImageWriter} instance (thread-safe to call concurrently from multiple
-     * pool threads - {@link ImageIO#getImageWritersByFormatName} hands back a
+     * pool threads, {@link ImageIO#getImageWritersByFormatName} hands back a
      * new writer per call, never a shared one) so Phase B can run this on the
      * shared executor without touching the {@link PDDocument} at all; the
      * bytes are attached via {@link JPEGFactory#createFromStream} back on the

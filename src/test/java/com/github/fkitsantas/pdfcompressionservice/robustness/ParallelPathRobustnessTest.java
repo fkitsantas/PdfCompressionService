@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  * (see the {@code concurrency} test package). Runs {@link
  * InvoiceCorpusFactory#mixedCorpusWithUndecodableImage()} through ONE shared
  * engine, configured so the parallel dispatch path is guaranteed to engage
- * ({@code parallelism=4}, {@code parallelImageThreshold=0} - "always prefer
+ * ({@code parallelism=4}, {@code parallelImageThreshold=0}, "always prefer
  * parallel once there is at least one eligible image", so this holds even
  * though the fixture only has 2 images total), concurrently invoked from
  * several caller threads with a {@link CountDownLatch} gate to maximize

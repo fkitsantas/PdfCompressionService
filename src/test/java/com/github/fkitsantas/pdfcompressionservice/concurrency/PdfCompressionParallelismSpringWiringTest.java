@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * correct attachment disposition for a multi-image upload that exercises
  * the parallel path.
  *
- * <p>Kept minimal by design - the full HTTP contract (headers, status codes
+ * <p>Kept minimal by design, the full HTTP contract (headers, status codes
  * for every error case, etc.) is already covered by
  * {@code PdfCompressionControllerContractTest} and
  * {@code PdfCompressionConcurrencyTest}; this class only adds what's new:
@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * <p><b>RED by design</b>: the bean-wiring and HTTP-contract assertions here
  * are expected to pass immediately (they only require the
  * {@link PdfCompressionExecutorConfig} plumbing, which is fully
- * implemented - see that class). What fails is the final assertion, which
+ * implemented, see that class). What fails is the final assertion, which
  * proves the parallel path was actually *exercised* through the web layer:
  * the skeleton engine's {@code compress(...)} never dispatches to the
  * executor, so no {@code pdf-img-*} worker thread is ever created.
@@ -78,7 +78,7 @@ class PdfCompressionParallelismSpringWiringTest {
 
         // Assert dispatch via the shared pool's task-count delta rather than by observing new pdf-img-* thread
         // NAMES: this Spring context (and its singleton engine + pool) is shared with other @SpringBootTest classes
-        // in the same JVM fork, so a prior test may have left warm worker threads that this request reuses - making
+        // in the same JVM fork, so a prior test may have left warm worker threads that this request reuses, making
         // a before/after thread-name diff racy. getTaskCount() increments on every submission regardless of whether
         // a fresh thread was spawned or an existing one reused, so it is a direct, timing-independent proof that the
         // parallel path actually ran through the web layer.

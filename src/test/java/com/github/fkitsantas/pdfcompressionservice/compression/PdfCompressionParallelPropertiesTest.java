@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
  *
  * <p>Same rationale as {@link PdfCompressionPropertiesTest} for testing the
  * setters directly rather than via a {@code jakarta.validation.Validator}
- * (none is on this offline build's classpath - see that class's Javadoc).
+ * (none is on this offline build's classpath, see that class's Javadoc).
  *
  * <p><b>Unlike the behavioural parallelism tests in the {@code concurrency}
  * package, this class is expected to be GREEN already</b>, exactly like its

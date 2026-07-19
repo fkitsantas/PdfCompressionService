@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  *
  * <p>Kept deliberately non-flaky: no assertion here depends on exactly which
  * internal counter (inspected/unchanged/etc.) the engine buckets the poison
- * image into - only on document-level invariants (counts, size monotonicity,
+ * image into, only on document-level invariants (counts, size monotonicity,
  * renderability) that any correct implementation satisfies regardless of
  * bookkeeping detail.
  *
@@ -89,7 +89,7 @@ class MixedCodecCorpusRobustnessTest {
                 .as("at least one of the four normal images must have been optimized")
                 .isTrue();
 
-        // Every page must still render cleanly - a corrupted/half-written
+        // Every page must still render cleanly, a corrupted/half-written
         // image XObject typically blows up PDFRenderer, not just Loader.loadPDF.
         for (int i = 0; i < pageCountBefore; i++) {
             int pageIndex = i;
@@ -102,7 +102,7 @@ class MixedCodecCorpusRobustnessTest {
     /**
      * Encoded stream length of each page's image, in page order, treating
      * the poison page's slot as {@code -1} (excluded from the monotonicity
-     * check - it has its own byte-identical check instead).
+     * check, it has its own byte-identical check instead).
      */
     private static long[] nonPoisonEncodedLengthsByPage(PDDocument doc, int pageCount) throws IOException {
         long[] lengths = new long[pageCount];
@@ -110,7 +110,7 @@ class MixedCodecCorpusRobustnessTest {
             try {
                 lengths[i] = PoisonImageLocator.encodedLength(PoisonImageLocator.firstNonPoisonImage(doc.getPage(i)));
             } catch (IllegalStateException noNonPoisonImageOnThisPage) {
-                lengths[i] = -1; // the poison page itself - excluded from the monotonicity check
+                lengths[i] = -1; // the poison page itself, excluded from the monotonicity check
             }
         }
         return lengths;

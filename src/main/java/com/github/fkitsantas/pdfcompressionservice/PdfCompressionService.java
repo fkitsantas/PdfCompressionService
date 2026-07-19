@@ -31,7 +31,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * response headers, operational logging).
  *
  * <p>Only operational metadata is logged here (request id, sizes, counts,
- * timing, success/failure) - never document contents, text or bytes.
+ * timing, success/failure), never document contents, text or bytes.
  */
 @RestController
 public class PdfCompressionService {

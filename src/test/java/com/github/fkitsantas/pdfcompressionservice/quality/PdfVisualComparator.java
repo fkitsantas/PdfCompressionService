@@ -66,7 +66,7 @@ public final class PdfVisualComparator {
     }
 
     // ------------------------------------------------------------------
-    // SSIM implementation (Wang et al., 2004) - grayscale/luma, 8x8 windows.
+    // SSIM implementation (Wang et al., 2004), grayscale/luma, 8x8 windows.
     // ------------------------------------------------------------------
 
     private static final int WINDOW = 8;

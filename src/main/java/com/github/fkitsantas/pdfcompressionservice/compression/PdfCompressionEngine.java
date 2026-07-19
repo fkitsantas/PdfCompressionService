@@ -48,7 +48,7 @@ import org.springframework.stereotype.Service;
  * annotations and AcroForm fields).
  *
  * <p>Only image XObjects are ever touched. Content streams (page, form or
- * annotation appearance) are never rewritten by this engine - the {@code cm}
+ * annotation appearance) are never rewritten by this engine, the {@code cm}
  * placement matrices are left exactly as they are, which is what keeps page
  * geometry, rotation and aspect ratio inherently intact.
  *
@@ -57,7 +57,7 @@ import org.springframework.stereotype.Service;
  *   <li>Load the document, honouring {@link PdfCompressionProperties#getStreamCache()}.</li>
  *   <li>Analyze every page's content stream (recursing into nested Form
  *       XObjects automatically) to learn the maximum size, in PDF points,
- *       each image is ever rendered at - its "usage".</li>
+ *       each image is ever rendered at, its "usage".</li>
  *   <li>Recursively discover every unique image XObject reachable from page
  *       resources, nested form resources and annotation appearance streams,
  *       de-duplicated by underlying COS object identity so a shared image is
@@ -101,7 +101,7 @@ public class PdfCompressionEngine {
      * Single, bounded, daemon-threaded executor owned by this engine instance
      * and shared across every {@link #compress} call made on it (i.e. across
      * concurrent requests when this engine is the Spring-managed singleton
-     * bean) - never a per-request pool. Sized from
+     * bean), never a per-request pool. Sized from
      * {@link PdfCompressionProperties#resolveParallelism()} at construction
      * time.
      *
@@ -110,7 +110,7 @@ public class PdfCompressionEngine {
      * executor once an eligible-image count exceeds {@link
      * PdfCompressionProperties#getParallelImageThreshold()} and {@link
      * PdfCompressionProperties#resolveParallelism()} is more than {@code 1}
-     * - see {@link #processImages}. Decoding ({@link ImageOptimizer#finishPlan})
+     *, see {@link #processImages}. Decoding ({@link ImageOptimizer#finishPlan})
      * and attaching ({@link ImageOptimizer#attach}) always stay on the
      * calling thread, since both touch the shared {@link PDDocument}, which
      * PDFBox does not support concurrent access to.
@@ -124,7 +124,7 @@ public class PdfCompressionEngine {
      * compression holds a whole {@link PDDocument} plus decoded images in
      * memory). Sized from {@link PdfCompressionProperties#resolveMaxConcurrentCompressions()};
      * fair so requests are admitted in arrival order. Excess requests block on
-     * {@link #compress} until a permit frees up - they are never rejected.
+     * {@link #compress} until a permit frees up, they are never rejected.
      */
     private final Semaphore compressionPermits;
 
@@ -142,7 +142,7 @@ public class PdfCompressionEngine {
      * {@code resolveParallelism()} OS threads on an idle service forever, idle
      * workers expire after this window and respawn on the next burst, at the
      * cost of a little thread-start latency. This is a pure resource-hygiene
-     * value - correctness and the concurrency tests do not depend on it (tests
+     * value, correctness and the concurrency tests do not depend on it (tests
      * prove dispatch via the executor's task count and via fresh-engine thread
      * observation, never by waiting for threads to be reaped), so it is chosen
      * comfortably long enough to never expire mid-request.
@@ -158,13 +158,13 @@ public class PdfCompressionEngine {
         };
         // corePoolSize == maximumPoolSize == size: with an unbounded queue, a
         // ThreadPoolExecutor only ever creates threads up to corePoolSize
-        // (beyond that it just enqueues - maximumPoolSize is never consulted
+        // (beyond that it just enqueues, maximumPoolSize is never consulted
         // once the queue accepts offers unconditionally), so this pair is
         // what actually bounds/guarantees worker creation up to `size`.
         // allowCoreThreadTimeOut(true) is what then lets those threads expire
         // (see WORKER_KEEP_ALIVE_SECONDS) instead of camping forever; the
         // next burst of work simply respawns fresh core threads on demand,
-        // exactly as if none had ever existed - the pool identity, bound and
+        // exactly as if none had ever existed, the pool identity, bound and
         // daemon/pdf-img-* naming are unaffected either way.
         ThreadPoolExecutor executor = new ThreadPoolExecutor(size, size, WORKER_KEEP_ALIVE_SECONDS, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(), threadFactory);
@@ -322,8 +322,8 @@ public class PdfCompressionEngine {
      * PdfCompressionProperties#getParallelImageThreshold()} (and parallelism
      * is actually usable, i.e. {@code resolveParallelism() != 1}).
      *
-     * <p>Every per-image failure - during the gate check, decode/classify,
-     * transform or attach - is caught here and turned into {@link
+     * <p>Every per-image failure, during the gate check, decode/classify,
+     * transform or attach, is caught here and turned into {@link
      * ImageOptimizer.Outcome#unchanged()} (original XObject left in place,
      * counted as unchanged) rather than allowed to propagate: a single
      * undecodable/corrupt/exotic image must never abort the whole request or
@@ -332,7 +332,7 @@ public class PdfCompressionEngine {
      *
      * <p>Phase C (attach) always runs back on the calling thread, strictly in
      * original discovery order, regardless of which pool thread finished its
-     * Phase B work first or in what order - this is what keeps {@code
+     * Phase B work first or in what order, this is what keeps {@code
      * COSWriter} object numbering, and therefore {@code compressedBytes},
      * identical between a serial and a parallel run of the same input.
      */
@@ -388,7 +388,7 @@ public class PdfCompressionEngine {
             }
             List<Integer> readyIndices = new ArrayList<>(plannedBatch.keySet());
 
-            // Phase B: CPU-heavy resize/encode, off the PDDocument entirely - safe to fan out across the pool.
+            // Phase B: CPU-heavy resize/encode, off the PDDocument entirely, safe to fan out across the pool.
             List<TransformAttempt> attempts = useParallel
                     ? transformBatchInParallel(readyIndices, plannedBatch, optimizer, requestId)
                     : transformBatchSerially(readyIndices, plannedBatch, optimizer);
@@ -408,7 +408,7 @@ public class PdfCompressionEngine {
                     outcomes[idx] = ImageOptimizer.Outcome.unchanged();
                 }
             }
-            // plannedBatch/attempts fall out of scope here - their decoded BufferedImages/encoded byte[]s become
+            // plannedBatch/attempts fall out of scope here, their decoded BufferedImages/encoded byte[]s become
             // eligible for GC before the next batch starts, bounding peak memory to ~one batch's worth.
         }
 
@@ -458,7 +458,7 @@ public class PdfCompressionEngine {
     /**
      * Dispatches this batch's Phase B work to {@link #imageProcessingExecutor}
      * via {@link ExecutorService#invokeAll}, which submits every task then
-     * blocks until all complete - each task catches its own exception
+     * blocks until all complete, each task catches its own exception
      * internally and returns a failed {@link TransformAttempt} rather than
      * letting it propagate, so one poisoned image's {@code Future} can never
      * abort the others in the same {@code invokeAll} call.
@@ -502,7 +502,7 @@ public class PdfCompressionEngine {
 
     /**
      * Operational-only WARN log: request id, image index/phase and exception
-     * class - deliberately never the exception message or any document
+     * class, deliberately never the exception message or any document
      * content, since a decode failure's message can echo raw stream/filter
      * details.
      */

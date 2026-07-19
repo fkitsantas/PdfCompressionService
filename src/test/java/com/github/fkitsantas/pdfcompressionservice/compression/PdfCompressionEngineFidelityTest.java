@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * grayscale must stay grayscale, transparency/soft-masks must survive, and
  * bitonal scans must remain bitonal and pixel-exact (lossless).
  *
- * <p><b>These tests are RED by design</b> - see {@link PdfCompressionEngineBehaviorTest}
+ * <p><b>These tests are RED by design</b>, see {@link PdfCompressionEngineBehaviorTest}
  * for why: the engine is currently an unimplemented stub.
  */
 class PdfCompressionEngineFidelityTest {
@@ -61,7 +61,7 @@ class PdfCompressionEngineFidelityTest {
 
         // Render against a white page background: the near-fully-transparent
         // top strip of the source gradient (alpha ~0) must render close to
-        // white, never black - the historical defect flattened transparent
+        // white, never black, the historical defect flattened transparent
         // PNG regions to solid black by drawing ARGB onto a TYPE_INT_RGB
         // buffer with no background fill.
         BufferedImage rendered = PdfVisualComparator.render(compressed, 72, 0);
@@ -105,7 +105,7 @@ class PdfCompressionEngineFidelityTest {
 
         // The text/vector-art band (y ~ 100-360pt from bottom -> convert to a
         // top-left-origin pixel rectangle at 72 DPI) must render essentially
-        // identically before/after - only the photographic image should change.
+        // identically before/after, only the photographic image should change.
         java.awt.Rectangle textRegionAt72Dpi = new java.awt.Rectangle(0, 480, 350, 300);
         double regionSsim = PdfVisualComparator.regionSsim(original, compressed, 72, 0, textRegionAt72Dpi);
         assertThat(regionSsim).isGreaterThan(0.98);

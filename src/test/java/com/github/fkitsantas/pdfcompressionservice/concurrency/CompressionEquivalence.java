@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>The task brief's own fallback clause anticipates this: PDFBox's
  * {@code COSWriter} generates a fresh, effectively random {@code /ID} entry
  * on every {@code doc.save(...)} call (derived from a timestamp/UUID-ish
- * source), independent of parallelism entirely - so two separately-run
+ * source), independent of parallelism entirely, so two separately-run
  * compressions of the *same* input, even both fully serial, are already not
  * guaranteed byte-identical today. Asserting whole-PDF byte equality would
  * therefore be flaky by construction, not because of anything the
@@ -34,12 +34,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>What parallelism must <b>not</b> change is document byte length (a
  * function of object *count* and structure, not of the specific {@code /ID}
  * bytes or of which OS thread computed which image), the recorded
- * compression stats, and - most importantly - the actual pixel content and
+ * compression stats, and, most importantly, the actual pixel content and
  * encoded size of every image. So this helper asserts, per corresponding
  * page: identical encoded image-stream length (the resize+encode step is a
  * pure function of the source image + config; thread scheduling cannot
  * change its output) and identical rendered pixels (0% max-pixel-diff at a
- * fixed DPI - the strongest non-flaky visual check available, stronger than
+ * fixed DPI, the strongest non-flaky visual check available, stronger than
  * an SSIM threshold). Combined with whole-result stats equality (sizes,
  * counts, policy outcome), this is strictly more informative than a raw
  * byte-diff would be for tracking down a real parallelism bug: a byte diff
@@ -82,7 +82,7 @@ final class CompressionEquivalence {
     /**
      * Structural + pixel-level equivalence of two produced PDFs, for the
      * single-image-per-page shape of {@code InvoiceCorpusFactory.multipleLargeInvoiceImages}
-     * (the fixture the parallelism tests are required to use - parallelism
+     * (the fixture the parallelism tests are required to use, parallelism
      * only matters once there is more than one image to fan out).
      */
     static void assertPdfsFunctionallyEquivalent(byte[] pdfA, byte[] pdfB, int expectedPageCount) throws IOException {
@@ -121,7 +121,7 @@ final class CompressionEquivalence {
     }
 
     /** Distinct unique image XObject count reachable from page resources, in page order. Forms/annotations are
-     * deliberately not walked here - the parallelism fixtures never use them (see InvoiceCorpusFactory). */
+     * deliberately not walked here, the parallelism fixtures never use them (see InvoiceCorpusFactory). */
     static int countImageXObjects(byte[] pdfBytes) throws IOException {
         try (PDDocument doc = Loader.loadPDF(pdfBytes)) {
             int count = 0;
