@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -58,39 +59,48 @@ public class PdfCompressionService {
     public ResponseEntity<InputStreamResource> compressPdf(@RequestParam("file") MultipartFile file,
                                                              HttpServletRequest request) throws IOException {
         String requestId = UUID.randomUUID().toString();
-        request.setAttribute(CompressionExceptionHandler.REQUEST_ID_ATTRIBUTE, requestId);
-
-        String originalFilename = file.getOriginalFilename();
-        logger.info("requestId={} action=compress-start filename={} sizeBytes={}",
-                requestId, originalFilename, file.getSize());
-
-        CompressionResult result;
+        // Correlation id for every log line produced while handling this request
+        // (console + live /logs view); removed in the finally block below.
+        MDC.put("requestId", requestId);
         try {
-            byte[] bytes = file.getBytes();
-            result = engine.compress(bytes, originalFilename, requestId);
-        } catch (InvalidPdfException | PdfCompressionException e) {
-            logger.warn("requestId={} action=compress-failed reason={}", requestId, e.getClass().getSimpleName());
-            throw e;
+            request.setAttribute(CompressionExceptionHandler.REQUEST_ID_ATTRIBUTE, requestId);
+
+            String originalFilename = file.getOriginalFilename();
+            logger.info("requestId={} action=compress-start filename={} sizeBytes={}",
+                    requestId, originalFilename, file.getSize());
+            logger.debug("requestId={} action=upload-received contentType={} multipartField={}",
+                    requestId, file.getContentType(), file.getName());
+
+            CompressionResult result;
+            try {
+                byte[] bytes = file.getBytes();
+                result = engine.compress(bytes, originalFilename, requestId);
+            } catch (InvalidPdfException | PdfCompressionException e) {
+                logger.warn("requestId={} action=compress-failed reason={}", requestId, e.getClass().getSimpleName());
+                throw e;
+            }
+
+            logger.info("requestId={} action=compress-complete originalBytes={} compressedBytes={} savedBytes={} "
+                            + "savedPercent={} pageCount={} imagesInspected={} imagesDownsampled={} "
+                            + "imagesRecompressed={} imagesUnchanged={} profile={} durationMillis={} returnedOriginal={}",
+                    requestId, result.getOriginalBytes(), result.getCompressedBytes(), result.getSavedBytes(),
+                    result.getSavedPercent(), result.getPageCount(), result.getImagesInspected(),
+                    result.getImagesDownsampled(), result.getImagesRecompressed(), result.getImagesUnchanged(),
+                    result.getProfile(), result.getDurationMillis(), result.isReturnedOriginal());
+
+            byte[] compressedPdf = result.getCompressedPdf();
+            InputStreamResource resource = new InputStreamResource(new ByteArrayInputStream(compressedPdf));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentDisposition(ContentDisposition.attachment().filename("optimized.pdf").build());
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .contentLength(compressedPdf.length)
+                    .body(resource);
+        } finally {
+            MDC.remove("requestId");
         }
-
-        logger.info("requestId={} action=compress-complete originalBytes={} compressedBytes={} savedBytes={} "
-                        + "savedPercent={} pageCount={} imagesInspected={} imagesDownsampled={} "
-                        + "imagesRecompressed={} imagesUnchanged={} profile={} durationMillis={} returnedOriginal={}",
-                requestId, result.getOriginalBytes(), result.getCompressedBytes(), result.getSavedBytes(),
-                result.getSavedPercent(), result.getPageCount(), result.getImagesInspected(),
-                result.getImagesDownsampled(), result.getImagesRecompressed(), result.getImagesUnchanged(),
-                result.getProfile(), result.getDurationMillis(), result.isReturnedOriginal());
-
-        byte[] compressedPdf = result.getCompressedPdf();
-        InputStreamResource resource = new InputStreamResource(new ByteArrayInputStream(compressedPdf));
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentDisposition(ContentDisposition.attachment().filename("optimized.pdf").build());
-
-        return ResponseEntity.ok()
-                .headers(headers)
-                .contentType(MediaType.APPLICATION_PDF)
-                .contentLength(compressedPdf.length)
-                .body(resource);
     }
 }

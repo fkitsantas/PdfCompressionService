@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging configuration.
+
+  Two appenders receive every event:
+    * CONSOLE - stdout, as before (so an external service manager / launchd /
+      systemd that redirects stdout keeps a durable log on disk).
+    * LIVE    - an in-process ring buffer (LiveLogAppender -> LiveLogStore) that
+      powers the live, self-updating GET /logs view over Server-Sent Events.
+
+  The [%X{requestId}] field is the per-request correlation id (set as an MDC
+  value by the compression controller), so every line produced while handling a
+  request can be traced to that request in both the console and the /logs view.
+
+  Levels are set in application.properties (logging.level.*); the app package
+  defaults to DEBUG there for detailed, debuggable output.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{requestId:-}] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="LIVE" class="com.github.fkitsantas.pdfcompressionservice.logging.LiveLogAppender"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="LIVE"/>
+    </root>
+</configuration>

@@ -2,85 +2,250 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Logs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="dark light">
+    <title>Live Logs · PDF Compression Service</title>
     <style>
-        /* Global styles for the page */
-        html, body {
-            height: 100%;
-            margin: 0;
+        /* ---- Theme tokens (dark by default, light via prefers-color-scheme) ---- */
+        :root {
+            --bg: #0d1117; --panel: #161b22; --panel-2: #21262d; --border: #30363d;
+            --text: #e6edf3; --muted: #9198a1; --accent: #4493f8; --focus: #79c0ff;
+            --trace: #7d8590; --debug: #9198a1; --info: #4493f8; --warn: #d29922; --error: #ff7b72;
+            --row-hover: #12171f;
         }
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg: #ffffff; --panel: #f6f8fa; --panel-2: #eaeef2; --border: #d0d7de;
+                --text: #1f2328; --muted: #59636e; --accent: #0969da; --focus: #0969da;
+                --trace: #8c959f; --debug: #59636e; --info: #0969da; --warn: #9a6700; --error: #cf222e;
+                --row-hover: #f2f5f8;
+            }
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            background: var(--bg); color: var(--text);
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            display: flex; flex-direction: column;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        /* ---- Header / toolbar ---- */
+        header {
+            position: sticky; top: 0; z-index: 10;
+            background: var(--panel); border-bottom: 1px solid var(--border);
+            display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+            padding: 10px clamp(10px, 3vw, 18px);
+        }
+        .brand { display: flex; align-items: center; gap: 10px; min-width: max-content; }
+        .brand h1 { font-size: clamp(14px, 2.5vw, 16px); margin: 0; font-weight: 650; letter-spacing: .2px; }
+        .status { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+        .dot.live { background: #3fb950; box-shadow: 0 0 0 3px color-mix(in srgb, #3fb950 25%, transparent); }
+        .dot.down { background: var(--error); box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 25%, transparent); }
+        .grow { flex: 1 1 200px; }
+        .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .search { flex: 1 1 180px; min-width: 140px; display: flex; align-items: center; gap: 8px;
+                  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; }
+        .search svg { width: 15px; height: 15px; color: var(--muted); flex: none; }
+        .search input { flex: 1; background: transparent; border: 0; color: var(--text);
+                        font: inherit; padding: 9px 0; min-width: 0; }
+        .search input::placeholder { color: var(--muted); }
+        .search input:focus { outline: none; }
+        .search:focus-within { border-color: var(--accent); }
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip { display: inline-flex; align-items: center; min-height: 34px; padding: 4px 11px;
+                border: 1px solid var(--border); border-radius: 999px; color: var(--muted);
+                background: var(--panel-2); cursor: pointer; user-select: none; font-size: 13px; font-weight: 600; }
+        .chip input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .chip:has(input:checked) { color: var(--text); border-color: currentColor; }
+        .chip[data-level="TRACE"]:has(input:checked) { color: var(--trace); }
+        .chip[data-level="DEBUG"]:has(input:checked) { color: var(--debug); }
+        .chip[data-level="INFO"]:has(input:checked)  { color: var(--info); }
+        .chip[data-level="WARN"]:has(input:checked)  { color: var(--warn); }
+        .chip[data-level="ERROR"]:has(input:checked) { color: var(--error); }
+        button.btn { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 12px;
+                     background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+                     border-radius: 8px; cursor: pointer; font: inherit; font-weight: 600; }
+        button.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+        button.btn:hover { border-color: var(--accent); }
+        :where(button, input, .chip):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-        /* Styles for the columns that will hold the output and error logs */
-        .columns {
-            display: flex;
-        }
+        /* ---- Log stream ---- */
+        #log { flex: 1; overflow: auto; overflow-wrap: anywhere;
+               font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+               font-size: clamp(12px, 2.4vw, 13.5px); line-height: 1.55; padding: 6px 0; }
+        .row { display: grid; align-items: baseline;
+               grid-template-columns: 92px 68px minmax(0, 1fr); gap: 4px 12px;
+               padding: 4px clamp(10px, 3vw, 18px); border-left: 3px solid transparent; }
+        .row:hover { background: var(--row-hover); }
+        .row .time { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .lvl { justify-self: start; font-size: 11px; font-weight: 700; letter-spacing: .3px;
+               padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+        .main { min-width: 0; }
+        .meta { color: var(--muted); margin-right: 8px; }
+        .meta .req { color: var(--accent); }
+        .msg { white-space: pre-wrap; word-break: break-word; }
+        .row.TRACE { border-left-color: var(--trace); } .row.TRACE .lvl, .row.TRACE .msg { color: var(--trace); }
+        .row.DEBUG { border-left-color: var(--debug); } .row.DEBUG .lvl { color: var(--debug); }
+        .row.INFO  { border-left-color: var(--info); }  .row.INFO  .lvl { color: var(--info); }
+        .row.WARN  { border-left-color: var(--warn); }  .row.WARN  .lvl, .row.WARN .msg { color: var(--warn); }
+        .row.ERROR { border-left-color: var(--error); } .row.ERROR .lvl, .row.ERROR .msg { color: var(--error); }
+        body.hide-TRACE .row.TRACE, body.hide-DEBUG .row.DEBUG, body.hide-INFO .row.INFO,
+        body.hide-WARN .row.WARN, body.hide-ERROR .row.ERROR { display: none; }
+        .row.nomatch { display: none; }
+        .empty { color: var(--muted); text-align: center; padding: 40px 16px; }
 
-        .left, .right {
-            flex: 1;
-            width: 50%;
-            height: 80vh; /* Adjust this value to your needs */
+        /* Tablet / phone: drop the meta line under the message, tighten the grid. */
+        @media (max-width: 640px) {
+            .row { grid-template-columns: 64px minmax(0, 1fr); }
+            .row .time { grid-column: 1; }
+            .row .lvl { grid-column: 2; justify-self: start; }
+            .row .main { grid-column: 1 / -1; }
+            .chip, button.btn { min-height: 40px; }  /* comfortable touch targets */
         }
-
-        /* Styles for the iframes that will display the output and error logs */
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            overflow-y: auto; /* Allows vertical scrolling when content overflows */
-            overflow-x: auto; /* Allows horizontal scrolling when content overflows */
-        }
+        @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
     </style>
-    <script>
-        /* Function to load logs into iframes */
-        function loadLogs() {
-            // Get content from hidden divs
-            var outputContent = document.getElementById('outputContent').textContent;
-            var errorContent = document.getElementById('errorContent').textContent;
-
-            // Replace newline characters with HTML line breaks
-            outputContent = outputContent.replace(/\n/g, '<br>');
-            errorContent = errorContent.replace(/\n/g, '<br>');
-
-            // Get iframes
-            var outputFrame = document.getElementById('outputFrame');
-            var errorFrame = document.getElementById('errorFrame');
-
-            // Set content in iframes
-            if (outputFrame) {
-                outputFrame.srcdoc = '<html><body style="overflow:auto;height:100%">' + outputContent + '</body></html>';
-            }
-
-            if (errorFrame) {
-                errorFrame.srcdoc = '<html><body style="overflow:auto;height:100%">' + errorContent + '</body></html>';
-            }
-        }
-
-        /* Load logs when the page initially loads */
-        window.onload = function() {
-            loadLogs();
-        };
-    </script>
 </head>
-<body>
-<!-- Hidden divs to store the log content -->
-<div id="outputContent" style="display:none" th:text="${outputLog}"></div>
-<div id="errorContent" style="display:none" th:text="${errorLog}"></div>
-
-<!-- Columns to display the logs -->
-<div class="columns">
-
-    <!-- Left column for output log -->
-    <div class="left">
-        <h1>Output Log</h1>
-        <iframe id="outputFrame"></iframe>
+<body class="hide-TRACE">
+<header>
+    <div class="brand">
+        <h1>Live Logs</h1>
+        <span class="status" aria-live="polite">
+            <span id="dot" class="dot" aria-hidden="true"></span>
+            <span id="statusText">connecting&hellip;</span>
+        </span>
     </div>
-
-    <!-- Right column for error log -->
-    <div class="right">
-        <h1>Error Log</h1>
-        <iframe id="errorFrame"></iframe>
+    <div class="toolbar grow">
+        <label class="search">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.7 10.3a6 6 0 1 0-1.4 1.4l3 3a1 1 0 0 0 1.4-1.4zM3 7a4 4 0 1 1 8 0 4 4 0 0 1-8 0"/></svg>
+            <input id="search" type="search" placeholder="Filter logs…" aria-label="Filter logs by text" autocomplete="off">
+        </label>
+        <div class="chips" id="filters" role="group" aria-label="Filter by log level"></div>
+        <button id="follow" class="btn" type="button" aria-pressed="true" title="Auto-scroll to newest">Follow</button>
+        <button id="clear" class="btn" type="button" title="Clear the view (server history is unaffected)">Clear</button>
     </div>
+</header>
 
-</div>
+<main id="log" role="log" aria-live="polite" aria-label="Application logs" tabindex="0">
+    <div class="empty" id="empty">Waiting for log events…</div>
+</main>
+
+<script>
+(function () {
+    var LEVELS = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"];
+    var MAX_ROWS = 5000;
+    var logEl = document.getElementById("log");
+    var emptyEl = document.getElementById("empty");
+    var dot = document.getElementById("dot");
+    var statusText = document.getElementById("statusText");
+    var followBtn = document.getElementById("follow");
+    var clearBtn = document.getElementById("clear");
+    var searchEl = document.getElementById("search");
+    var following = true;
+    var query = "";
+
+    var filters = document.getElementById("filters");
+    LEVELS.forEach(function (lvl) {
+        var on = lvl !== "TRACE";
+        var chip = document.createElement("label");
+        chip.className = "chip";
+        chip.dataset.level = lvl;
+        chip.innerHTML = '<input type="checkbox" ' + (on ? "checked" : "") + '>' + lvl;
+        chip.querySelector("input").addEventListener("change", function (e) {
+            document.body.classList.toggle("hide-" + lvl, !e.target.checked);
+            if (following) scrollToBottom();
+        });
+        filters.appendChild(chip);
+    });
+
+    function pad(n, w) { n = String(n); return n.length >= w ? n : "0".repeat(w - n.length) + n; }
+    function fmtTime(ms) {
+        var d = new Date(ms);
+        return pad(d.getHours(), 2) + ":" + pad(d.getMinutes(), 2) + ":" +
+               pad(d.getSeconds(), 2) + "." + pad(d.getMilliseconds(), 3);
+    }
+    function nearBottom() { return logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 48; }
+    function scrollToBottom() { logEl.scrollTop = logEl.scrollHeight; }
+
+    function matchesQuery(text) { return query === "" || text.toLowerCase().indexOf(query) !== -1; }
+
+    function append(entry) {
+        if (emptyEl) { emptyEl.remove(); emptyEl = null; }
+        var wasBottom = following && nearBottom();
+
+        var row = document.createElement("div");
+        row.className = "row " + (entry.level || "INFO");
+        row.setAttribute("role", "listitem");
+
+        var time = document.createElement("span");
+        time.className = "time"; time.textContent = fmtTime(entry.epochMillis);
+
+        var lvl = document.createElement("span");
+        lvl.className = "lvl"; lvl.textContent = entry.level || "";
+
+        var main = document.createElement("span");
+        main.className = "main";
+        var metaText = (entry.thread ? entry.thread + " " : "") + (entry.logger || "");
+        if (metaText.trim()) {
+            var meta = document.createElement("span");
+            meta.className = "meta";
+            if (entry.requestId) {
+                var req = document.createElement("span");
+                req.className = "req"; req.textContent = entry.requestId.slice(0, 8) + " ";
+                meta.appendChild(req);
+            }
+            meta.appendChild(document.createTextNode(metaText + " · "));
+            main.appendChild(meta);
+        }
+        var msg = document.createElement("span");
+        msg.className = "msg"; msg.textContent = entry.message || "";
+        main.appendChild(msg);
+
+        row.appendChild(time); row.appendChild(lvl); row.appendChild(main);
+
+        // Precompute searchable text for the text filter.
+        row.dataset.text = (entry.level + " " + metaText + " " + (entry.requestId || "") + " " + (entry.message || "")).toLowerCase();
+        if (!matchesQuery(row.dataset.text)) row.classList.add("nomatch");
+
+        logEl.appendChild(row);
+        while (logEl.childElementCount > MAX_ROWS) logEl.removeChild(logEl.firstElementChild);
+        if (wasBottom) scrollToBottom();
+    }
+
+    var searchTimer;
+    searchEl.addEventListener("input", function () {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+            query = searchEl.value.trim().toLowerCase();
+            logEl.querySelectorAll(".row").forEach(function (row) {
+                row.classList.toggle("nomatch", !matchesQuery(row.dataset.text || ""));
+            });
+            if (following) scrollToBottom();
+        }, 120);
+    });
+
+    followBtn.addEventListener("click", function () {
+        following = !following;
+        followBtn.setAttribute("aria-pressed", String(following));
+        if (following) scrollToBottom();
+    });
+    logEl.addEventListener("scroll", function () {
+        if (!nearBottom() && following) { following = false; followBtn.setAttribute("aria-pressed", "false"); }
+    });
+    clearBtn.addEventListener("click", function () {
+        logEl.querySelectorAll(".row").forEach(function (r) { r.remove(); });
+    });
+
+    function connect() {
+        var es = new EventSource("/logs/stream");
+        es.addEventListener("open", function () { dot.className = "dot live"; statusText.textContent = "live"; });
+        es.addEventListener("log", function (e) {
+            try { append(JSON.parse(e.data)); } catch (err) { /* ignore malformed frame */ }
+        });
+        es.addEventListener("error", function () { dot.className = "dot down"; statusText.textContent = "reconnecting…"; });
+    }
+    connect();
+})();
+</script>
 </body>
 </html>
