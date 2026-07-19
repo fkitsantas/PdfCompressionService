@@ -232,7 +232,7 @@ public class PdfCompressionEngine {
                     collectImages(page.getResources(), uniqueImages, referencesByImage, visitedResources);
                     collectAnnotationImages(page, uniqueImages, referencesByImage, visitedResources);
                 } catch (Exception e) {
-                    log.warn("Image discovery failed for request {} page #{} - skipping its images "
+                    log.warn("Image discovery failed for request {} page #{}, skipping its images "
                             + "(exception: {})", requestId, discoveryPageIndex, e.getClass().getName());
                 }
                 discoveryPageIndex++;
@@ -507,7 +507,7 @@ public class PdfCompressionEngine {
      * details.
      */
     private void logImageFailure(String requestId, int imageIndex, String phase, Throwable failure) {
-        log.warn("Per-image {} failure for request {} image #{} - leaving original untouched (exception: {})",
+        log.warn("Per-image {} failure for request {} image #{}, leaving original untouched (exception: {})",
                 phase, requestId, imageIndex, failure.getClass().getName());
     }
 
@@ -554,7 +554,7 @@ public class PdfCompressionEngine {
             try {
                 new ImageUsageAnalyzer(page, usage).processPage(page);
             } catch (Exception e) {
-                log.warn("Usage analysis failed for request {} page #{} - its images fall back to the "
+                log.warn("Usage analysis failed for request {} page #{}, its images fall back to the "
                         + "dimension cap only (exception: {})", requestId, pageIndex, e.getClass().getName());
             }
             pageIndex++;

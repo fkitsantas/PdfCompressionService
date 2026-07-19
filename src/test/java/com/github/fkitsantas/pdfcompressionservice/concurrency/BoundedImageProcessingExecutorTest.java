@@ -103,7 +103,7 @@ class BoundedImageProcessingExecutorTest {
                 .isNotEmpty();
         assertThat(newWorkerThreads.size())
                 .as("%d simultaneous requests on ONE shared engine must not grow the worker-thread count past " +
-                        "the configured parallelism (%d) - a per-request pool would fail this as request count " +
+                        "the configured parallelism (%d), a per-request pool would fail this as request count " +
                         "increases, a correctly shared bounded pool never will",
                         CONCURRENT_REQUESTS, PARALLELISM)
                 .isLessThanOrEqualTo(PARALLELISM);

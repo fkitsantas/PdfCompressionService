@@ -57,7 +57,7 @@ class MixedCodecCorpusRobustnessTest {
         }
 
         assertThatCode(() -> engine.compress(original, "mixed-codecs.pdf", "req-mixed-codecs"))
-                .as("no single image kind - decodable or not - may abort compressing the whole document")
+                .as("no single image kind, decodable or not, may abort compressing the whole document")
                 .doesNotThrowAnyException();
 
         CompressionResult result = engine.compress(original, "mixed-codecs.pdf", "req-mixed-codecs-2");
@@ -68,7 +68,7 @@ class MixedCodecCorpusRobustnessTest {
                     .as("page count must be fully preserved")
                     .isEqualTo(pageCountBefore);
             assertThat(PoisonImageLocator.countAllImageXObjects(doc))
-                    .as("every image XObject - optimized or passed through - must still be present")
+                    .as("every image XObject, optimized or passed through, must still be present")
                     .isEqualTo(imageCountBefore);
 
             byte[] poisonAfter = PoisonImageLocator.rawEncodedBytes(PoisonImageLocator.find(doc));

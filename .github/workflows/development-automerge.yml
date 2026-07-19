@@ -2,12 +2,10 @@ name: Development auto-merge
 
 # Development happens on the `development` branch. On every push to it, this
 # workflow runs the full build and test suite; if (and only if) everything
-# passes, it fast-forwards `main` up to the passing commit (falling back to a
-# merge commit if the branches have diverged). If anything fails, `main` is
-# left untouched.
-#
-# The push to `main` uses the built-in GITHUB_TOKEN, which by design does not
-# retrigger workflows, so there is no loop.
+# passes, it merges `development` into the protected `main` branch through a
+# pull request (main requires a PR, so a direct push is not possible), then
+# fast-forwards `development` back up to the new `main` so the two stay in
+# lockstep. If the build fails, `main` is left untouched.
 
 on:
   push:
@@ -15,8 +13,9 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
-# Serialize merges so two quick pushes can't race to update main.
+# Serialize so two quick pushes cannot race to update main.
 concurrency:
   group: development-automerge
   cancel-in-progress: false
@@ -28,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history so main can be fast-forwarded/merged
+          fetch-depth: 0
 
       - name: Set up JDK 21 (Temurin)
         uses: actions/setup-java@v4
@@ -40,17 +39,25 @@ jobs:
       - name: Build and run the full test suite
         run: ./mvnw -B -ntp clean verify -DbuildNumber="${{ github.run_number }}" -DgitSha="${{ github.sha }}"
 
-      - name: Fast-forward main to this passing commit
+      - name: Merge development into main (only reached if the build passed)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "Fotios Kitsantas"
-          git config user.email "fkitsantas@icloud.com"
           git fetch origin main
-          git checkout -B main origin/main
-          if git merge --ff-only "${GITHUB_SHA}"; then
-            echo "main fast-forwarded to ${GITHUB_SHA}"
-          else
-            git merge --no-edit "${GITHUB_SHA}" \
-              -m "Merge development into main (${GITHUB_SHA::7})"
-            echo "main merged (non-fast-forward)"
+          if [ "$(git rev-parse origin/main)" = "${GITHUB_SHA}" ]; then
+            echo "main already at this commit, nothing to merge."
+            exit 0
           fi
-          git push origin main
+          # Find an existing open development -> main PR, or open one.
+          NUM="$(gh pr list --head development --base main --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$NUM" ]; then
+            gh pr create --base main --head development \
+              --title "Merge development into main" \
+              --body "Automated: the full build and test suite passed on development."
+            NUM="$(gh pr list --head development --base main --state open --json number --jq '.[0].number')"
+          fi
+          gh pr merge "$NUM" --merge
+          # Keep development in lockstep with the new main (fast-forward; development
+          # is a parent of the merge commit, so this is not a force update).
+          git fetch origin main
+          git push origin "$(git rev-parse origin/main):refs/heads/development"
