@@ -3,7 +3,7 @@ package com.github.fkitsantas.pdfcompressionservice;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import org.springframework.web.method.HandlerMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
