@@ -41,17 +41,17 @@ jobs:
           NOTES="$(cat <<'NOTES'
           ## Downloads
 
-          **Run without installing Java** — self-contained bundles (pick your OS):
-          - `*-macos-arm64.zip` — macOS (Apple Silicon)
-          - `*-macos-x64.zip` — macOS (Intel), when available
-          - `*-linux-x64.zip` — Linux (x64)
-          - `*-windows-x64.zip` — Windows (x64)
+          **Run without installing Java**, self-contained bundles (pick your OS):
+          - `*-macos-arm64.zip`, macOS (Apple Silicon)
+          - `*-macos-x64.zip`, macOS (Intel), when available
+          - `*-linux-x64.zip`, Linux (x64)
+          - `*-windows-x64.zip`, Windows (x64)
 
           Each bundle embeds a trimmed Java 21 runtime; unzip it and follow the
           included `INSTRUCTIONS.txt`. The service listens on http://localhost:7777.
 
           **Any OS (incl. Intel Mac), or already have Java 21?** `*-portable-jar.zip`
-          is a much smaller download — `java -jar PdfCompressionService.jar`.
+          is a much smaller download, `java -jar PdfCompressionService.jar`.
 
           Assets are attached per platform as each build finishes, so some may
           appear a little after the release is first created.
