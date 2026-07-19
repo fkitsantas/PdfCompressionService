@@ -1,0 +1,56 @@
+name: Development auto-merge
+
+# Development happens on the `development` branch. On every push to it, this
+# workflow runs the full build and test suite; if (and only if) everything
+# passes, it fast-forwards `main` up to the passing commit (falling back to a
+# merge commit if the branches have diverged). If anything fails, `main` is
+# left untouched.
+#
+# The push to `main` uses the built-in GITHUB_TOKEN, which by design does not
+# retrigger workflows, so there is no loop.
+
+on:
+  push:
+    branches: [development]
+
+permissions:
+  contents: write
+
+# Serialize merges so two quick pushes can't race to update main.
+concurrency:
+  group: development-automerge
+  cancel-in-progress: false
+
+jobs:
+  verify-and-merge:
+    name: Verify and merge to main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so main can be fast-forwarded/merged
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build and run the full test suite
+        run: ./mvnw -B -ntp clean verify -DbuildNumber="${{ github.run_number }}" -DgitSha="${{ github.sha }}"
+
+      - name: Fast-forward main to this passing commit
+        run: |
+          git config user.name "Fotios Kitsantas"
+          git config user.email "fkitsantas@icloud.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          if git merge --ff-only "${GITHUB_SHA}"; then
+            echo "main fast-forwarded to ${GITHUB_SHA}"
+          else
+            git merge --no-edit "${GITHUB_SHA}" \
+              -m "Merge development into main (${GITHUB_SHA::7})"
+            echo "main merged (non-fast-forward)"
+          fi
+          git push origin main

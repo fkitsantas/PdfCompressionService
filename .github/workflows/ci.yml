@@ -2,8 +2,8 @@ name: CI
 
 on:
   push:
-    branches: ['**']
-    tags-ignore: ['v*']   # tag pushes are handled by release.yml
+    branches-ignore: ['development']   # development is built + auto-merged by development-automerge.yml
+    tags-ignore: ['v*']                # tag pushes are handled by release.yml
   pull_request:
     branches: ['**']
 
