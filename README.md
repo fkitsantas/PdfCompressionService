@@ -30,9 +30,11 @@ Every release ships **self-contained bundles that embed their own Java 21 runtim
 
 1. Go to the [**Releases**](https://github.com/fkitsantas/PdfCompressionService/releases) page and download the bundle for your OS:
    - `…-macos-arm64.zip` — macOS (Apple Silicon)
-   - `…-macos-x64.zip` — macOS (Intel)
+   - `…-macos-x64.zip` — macOS (Intel), when available
    - `…-linux-x64.zip` — Linux (x64)
    - `…-windows-x64.zip` — Windows (x64)
+
+   > **On an Intel Mac?** The native Intel bundle isn't always published (GitHub's Intel macOS build runners are scarce). If it's missing from a release, just use the [**portable jar**](#portable-jar-os-agnostic--if-you-already-have-java-21) below — `java -jar PdfCompressionService.jar` — which runs on any OS, including Intel Macs, and only needs Java 21.
 2. Unzip it and follow the included `INSTRUCTIONS.txt`. In short:
 
    | OS | Launch |
@@ -206,7 +208,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-[`.github/workflows/release.yml`](.github/workflows/release.yml) then builds the self-contained bundles for macOS (Intel + Apple Silicon), Linux, and Windows via `jlink` + `jpackage`, plus the portable jar, and attaches them all to a GitHub Release. (Running the workflow manually builds the bundles as downloadable workflow artifacts without publishing a release.)
+[`.github/workflows/release.yml`](.github/workflows/release.yml) then creates the GitHub Release and builds the self-contained bundles for macOS (Apple Silicon + Intel), Linux, and Windows via `jlink` + `jpackage`, plus the portable jar. Each platform **attaches its own asset independently**, so a slow or unavailable runner (notably the scarce Intel macOS runner) never blocks the release — the other assets publish regardless, and any straggler attaches if/when it finishes. (Running the workflow manually builds the bundles as downloadable workflow artifacts without publishing a release.)
 
 ## Versioning
 

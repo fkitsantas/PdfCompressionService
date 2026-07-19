@@ -4,8 +4,14 @@ name: Release
 # (a trimmed Java 21 runtime is embedded via jlink + jpackage) and, when a
 # version tag is pushed, publishes them as GitHub Release assets.
 #
+# Resilient publishing: a lightweight job creates the Release once, then every
+# platform job attaches ITS OWN asset independently. No single platform can
+# block the release - if one runner (e.g. the scarce Intel macOS runner) stalls
+# or fails, the other assets still publish; the slow one attaches later if/when
+# it completes.
+#
 # Trigger:
-#   * push a tag like v0.1.0  -> builds bundles AND publishes a Release
+#   * push a tag like v0.2.0  -> builds bundles AND publishes a Release
 #   * run manually (workflow_dispatch) -> builds bundles, uploads them as
 #     workflow artifacts only (no Release)
 
@@ -15,15 +21,58 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # required for the publish job to create a Release
+  contents: write   # required to create the Release and upload assets
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Create the (empty) Release once, up front, so platform jobs can attach to it
+  # ---------------------------------------------------------------------------
+  create-release:
+    name: Create GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the release if it does not exist yet
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          NOTES="$(cat <<'NOTES'
+          ## Downloads
+
+          **Run without installing Java** — self-contained bundles (pick your OS):
+          - `*-macos-arm64.zip` — macOS (Apple Silicon)
+          - `*-macos-x64.zip` — macOS (Intel), when available
+          - `*-linux-x64.zip` — Linux (x64)
+          - `*-windows-x64.zip` — Windows (x64)
+
+          Each bundle embeds a trimmed Java 21 runtime; unzip it and follow the
+          included `INSTRUCTIONS.txt`. The service listens on http://localhost:7777.
+
+          **Any OS (incl. Intel Mac), or already have Java 21?** `*-portable-jar.zip`
+          is a much smaller download — `java -jar PdfCompressionService.jar`.
+
+          Assets are attached per platform as each build finishes, so some may
+          appear a little after the release is first created.
+          NOTES
+          )"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "PDF Compression Service $TAG" --notes "$NOTES"
+          fi
+
   # ---------------------------------------------------------------------------
   # Self-contained native bundles (no Java required by the end user)
   # ---------------------------------------------------------------------------
   bundle:
     name: Bundle (${{ matrix.asset }})
+    needs: [create-release]
+    # Run once the release exists (tag push) or on manual dispatch (release
+    # skipped); never block on, or run after, a create-release failure.
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -97,18 +146,27 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path "dist/$env:PKG" -DestinationPath "$env:PKG.zip"
 
-      - name: Upload bundle artifact
+      - name: Upload bundle artifact (workflow record / dispatch)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PKG }}
           path: ${{ env.PKG }}.zip
           if-no-files-found: error
 
+      - name: Attach bundle to the release (tagged releases only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: gh release upload "${GITHUB_REF_NAME}" "$PKG.zip" --repo "$GITHUB_REPOSITORY" --clobber
+
   # ---------------------------------------------------------------------------
   # Portable jar (small download; requires the user to have Java 21 installed)
   # ---------------------------------------------------------------------------
   portable-jar:
     name: Portable jar (needs Java 21)
+    needs: [create-release]
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -156,10 +214,10 @@ jobs:
           PDF Compression Service - Portable jar
           ======================================
 
-          This is the small, cross-platform (OS-agnostic) download. It requires
-          Java 21 (or newer) to be installed. If you would rather not install
-          Java, download the self-contained bundle for your operating system
-          instead.
+          This is the small, cross-platform (OS-agnostic) download. It runs on any
+          OS - including Intel Macs - and requires Java 21 (or newer) to be
+          installed. If you would rather not install Java, download the
+          self-contained bundle for your operating system instead.
 
           CHECK YOUR JAVA VERSION
             java -version          (must report 21 or newer)
@@ -191,56 +249,16 @@ jobs:
         shell: bash
         run: (cd dist && zip -q -r "../$PKG.zip" "$PKG")
 
-      - name: Upload portable-jar artifact
+      - name: Upload portable-jar artifact (workflow record / dispatch)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PKG }}
           path: ${{ env.PKG }}.zip
           if-no-files-found: error
 
-  # ---------------------------------------------------------------------------
-  # Publish a GitHub Release with every asset (tag pushes only)
-  # ---------------------------------------------------------------------------
-  publish:
-    name: Publish GitHub Release
-    needs: [bundle, portable-jar]
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all built assets
-        uses: actions/download-artifact@v4
-        with:
-          path: assets
-          merge-multiple: true
-
-      - name: Publish release
+      - name: Attach portable jar to the release (tagged releases only)
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
         shell: bash
-        run: |
-          mapfile -t ZIPS < <(find assets -name '*.zip' | sort)
-          printf 'asset: %s\n' "${ZIPS[@]}"
-          NOTES="$(cat <<'NOTES'
-          ## Downloads
-
-          **Run without installing Java** — self-contained bundles (pick your OS):
-          - `*-macos-arm64.zip` — macOS (Apple Silicon)
-          - `*-macos-x64.zip` — macOS (Intel)
-          - `*-linux-x64.zip` — Linux (x64)
-          - `*-windows-x64.zip` — Windows (x64)
-
-          Each bundle embeds a trimmed Java 21 runtime; unzip it and follow the
-          included `INSTRUCTIONS.txt`. The service listens on http://localhost:7777.
-
-          **Already have Java 21?** `*-portable-jar.zip` is a much smaller download
-          (`java -jar ...`).
-          NOTES
-          )"
-          # Idempotent: re-running for an existing tag updates its assets rather than failing.
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" "${ZIPS[@]}" --repo "$GITHUB_REPOSITORY" --clobber
-          else
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
-              --title "PDF Compression Service $TAG" --notes "$NOTES" "${ZIPS[@]}"
-          fi
+        run: gh release upload "${GITHUB_REF_NAME}" "$PKG.zip" --repo "$GITHUB_REPOSITORY" --clobber
