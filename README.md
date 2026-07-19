@@ -1,9 +1,10 @@
 # PDF Compression Service
 
 [![CI](https://github.com/fkitsantas/PdfCompressionService/actions/workflows/ci.yml/badge.svg)](https://github.com/fkitsantas/PdfCompressionService/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/fkitsantas/PdfCompressionService?sort=semver)](https://github.com/fkitsantas/PdfCompressionService/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-A small, self-contained web service that **shrinks PDF files by intelligently re-encoding their images** — downsampling and recompressing raster content to the resolution actually needed for on-screen and print use — while leaving text, vector graphics, transparency, and page layout untouched.
+A small, self-contained web service that **shrinks PDF files by intelligently re-encoding their images**, downsampling and recompressing raster content to the resolution actually needed for on-screen and print use, while leaving text, vector graphics, transparency, and page layout untouched.
 
 - **Table of Contents**
 - [What it does](#what-it-does)
@@ -18,7 +19,7 @@ A small, self-contained web service that **shrinks PDF files by intelligently re
 
 ## What it does
 
-- **Image-aware compression.** Each image is analysed for its *effective rendered DPI* (how many pixels actually land per inch on the page) and downsampled only when it is oversampled for its placement — never blindly.
+- **Image-aware compression.** Each image is analysed for its *effective rendered DPI* (how many pixels actually land per inch on the page) and downsampled only when it is oversampled for its placement, never blindly.
 - **Fidelity preserving.** Text and vector content are never rasterised. Transparency (soft masks) is retained, colour spaces are preserved (grayscale stays gray, bitonal scans stay 1-bit), and image orientation/aspect ratio are kept exactly.
 - **Content-adaptive codecs.** Photographic images are recompressed as JPEG; line-art and low-colour images use lossless Flate to avoid ringing artefacts; bitonal scans stay CCITT.
 - **Safety rails.** A replacement image is only kept if it is genuinely smaller (configurable threshold); otherwise the original is retained. The service never enlarges an image and never mutates your uploaded bytes.
@@ -26,15 +27,15 @@ A small, self-contained web service that **shrinks PDF files by intelligently re
 
 ## Download & run (no Java required)
 
-Every release ships **self-contained bundles that embed their own Java 21 runtime** — you do not need Java (or anything else) installed.
+Every release ships **self-contained bundles that embed their own Java 21 runtime**. You do not need Java (or anything else) installed.
 
 1. Go to the [**Releases**](https://github.com/fkitsantas/PdfCompressionService/releases) page and download the bundle for your OS:
-   - `…-macos-arm64.zip` — macOS (Apple Silicon)
-   - `…-macos-x64.zip` — macOS (Intel), when available
-   - `…-linux-x64.zip` — Linux (x64)
-   - `…-windows-x64.zip` — Windows (x64)
+   - `…-macos-arm64.zip`, macOS (Apple Silicon)
+   - `…-macos-x64.zip`, macOS (Intel), when available
+   - `…-linux-x64.zip`, Linux (x64)
+   - `…-windows-x64.zip`, Windows (x64)
 
-   > **On an Intel Mac?** The native Intel bundle isn't always published (GitHub's Intel macOS build runners are scarce). If it's missing from a release, just use the [**portable jar**](#portable-jar-os-agnostic--if-you-already-have-java-21) below — `java -jar PdfCompressionService.jar` — which runs on any OS, including Intel Macs, and only needs Java 21.
+   > **On an Intel Mac?** The native Intel bundle isn't always published (GitHub's Intel macOS build runners are scarce). If it's missing from a release, just use the [**portable jar**](#portable-jar-os-agnostic-if-you-already-have-java-21) below, `java -jar PdfCompressionService.jar`, which runs on any OS, including Intel Macs, and only needs Java 21.
 2. Unzip it and follow the included `INSTRUCTIONS.txt`. In short:
 
    | OS | Launch |
@@ -57,13 +58,13 @@ Every release ships **self-contained bundles that embed their own Java 21 runtim
 
 ## Alternatives
 
-### Portable jar (OS-agnostic — if you already have Java 21)
+### Portable jar (OS-agnostic, if you already have Java 21)
 
-The classic way to run it: one small, platform-independent jar. Every release includes `…-portable-jar.zip` alongside the OS bundles. This runs **exactly as before** — the only change from older releases is that it now requires Java 21 (rather than Java 8).
+The classic way to run it: one small, platform-independent jar. Every release includes `…-portable-jar.zip` alongside the OS bundles. This runs **exactly as before**. The only change from older releases is that it now requires Java 21 (rather than Java 8).
 
 **Step 1: Download the jar**
 
-Download `…-portable-jar.zip` from the [Releases](https://github.com/fkitsantas/PdfCompressionService/releases) page and unzip it into a folder. (It also ships an `INSTRUCTIONS.txt`.) Make sure Java 21+ is installed — check with `java -version`; get it from [adoptium.net](https://adoptium.net) if needed.
+Download `…-portable-jar.zip` from the [Releases](https://github.com/fkitsantas/PdfCompressionService/releases) page and unzip it into a folder. (It also ships an `INSTRUCTIONS.txt`.) Make sure Java 21+ is installed, check with `java -version`; get it from [adoptium.net](https://adoptium.net) if needed.
 
 **Step 2: Run the jar**
 
@@ -118,7 +119,7 @@ curl -X POST -F 'file=@invoice.pdf' \
      http://localhost:7777/compressPdf --output optimized.pdf
 ```
 
-**Error responses** are a stable JSON body — never a stack trace — carrying a `requestId` you can cross-reference in the server logs:
+**Error responses** are a stable JSON body, never a stack trace, carrying a `requestId` you can cross-reference in the server logs:
 
 ```json
 {
@@ -179,7 +180,7 @@ All settings live in `src/main/resources/application.properties` and can be over
 | `pdf.compression.max-concurrent-compressions` | `0` | admission gate bounding documents processed at once (peak-heap safety); `0` = auto (`cores × 4`); excess requests block |
 | `spring.threads.virtual.enabled` | `true` | handle requests on Java 21 virtual threads (blocking-friendly concurrency) |
 
-Example — run on a different port with more aggressive downsampling:
+Example, run on a different port with more aggressive downsampling:
 
 ```bash
 java -jar PdfCompressionService-*.jar --server.port=8080 --pdf.compression.target-dpi=120
@@ -188,7 +189,7 @@ java -jar PdfCompressionService-*.jar --server.port=8080 --pdf.compression.targe
 ## How compression works
 
 1. **Load** the PDF with a memory-bounded stream cache (never overwriting the source bytes).
-2. **Measure usage.** A content-stream engine records the maximum on-page size each image is drawn at, across every page, form XObject, and annotation appearance — yielding each image's *effective DPI*.
+2. **Measure usage.** A content-stream engine records the maximum on-page size each image is drawn at, across every page, form XObject, and annotation appearance, yielding each image's *effective DPI*.
 3. **Decide per image.** Skip masks, tiny, or already-small images; otherwise compute a single uniform downscale factor (never enlarging), pick a codec by content type, and high-quality bicubic-resample if warranted.
 4. **Verify the win.** Keep the replacement only when it meets the reduction threshold; shared images are optimized once and re-referenced, so deduplicated resources stay deduplicated.
 5. **Save** to a fresh byte stream and return statistics (bytes saved, images inspected/downsampled/recompressed/unchanged, timing).
@@ -208,13 +209,13 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-[`.github/workflows/release.yml`](.github/workflows/release.yml) then creates the GitHub Release and builds the self-contained bundles for macOS (Apple Silicon + Intel), Linux, and Windows via `jlink` + `jpackage`, plus the portable jar. Each platform **attaches its own asset independently**, so a slow or unavailable runner (notably the scarce Intel macOS runner) never blocks the release — the other assets publish regardless, and any straggler attaches if/when it finishes. (Running the workflow manually builds the bundles as downloadable workflow artifacts without publishing a release.)
+[`.github/workflows/release.yml`](.github/workflows/release.yml) then creates the GitHub Release and builds the self-contained bundles for macOS (Apple Silicon + Intel), Linux, and Windows via `jlink` + `jpackage`, plus the portable jar. Each platform **attaches its own asset independently**, so a slow or unavailable runner (notably the scarce Intel macOS runner) never blocks the release, the other assets publish regardless, and any straggler attaches if/when it finishes. (Running the workflow manually builds the bundles as downloadable workflow artifacts without publishing a release.)
 
 ## Versioning
 
 The project follows **semantic versioning**, with git tags as the source of truth for releases:
 
-- **Development builds** carry a `-SNAPSHOT` version (see [`pom.xml`](pom.xml)). Every CI build stamps itself with the workflow **run number** and the **commit SHA** into `META-INF/build-info.properties`, surfaced at [`GET /version`](#get-version) — so every successful build is uniquely identifiable.
+- **Development builds** carry a `-SNAPSHOT` version (see [`pom.xml`](pom.xml)). Every CI build stamps itself with the workflow **run number** and the **commit SHA** into `META-INF/build-info.properties`, surfaced at [`GET /version`](#get-version), so every successful build is uniquely identifiable.
 - **Releases** are cut by pushing a `vMAJOR.MINOR.PATCH` tag. The release workflow sets the Maven project version to that tag (via `versions:set`) before packaging, so the published bundles, the jar, and `/version` all report the exact released version.
 
 ```bash
