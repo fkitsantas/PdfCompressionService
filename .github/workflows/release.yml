@@ -1,0 +1,246 @@
+name: Release
+
+# Builds self-contained bundles that run WITHOUT any separately installed Java
+# (a trimmed Java 21 runtime is embedded via jlink + jpackage) and, when a
+# version tag is pushed, publishes them as GitHub Release assets.
+#
+# Trigger:
+#   * push a tag like v0.1.0  -> builds bundles AND publishes a Release
+#   * run manually (workflow_dispatch) -> builds bundles, uploads them as
+#     workflow artifacts only (no Release)
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # required for the publish job to create a Release
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Self-contained native bundles (no Java required by the end user)
+  # ---------------------------------------------------------------------------
+  bundle:
+    name: Bundle (${{ matrix.asset }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: linux-x64
+          - os: macos-latest      # Apple Silicon
+            asset: macos-arm64
+          - os: macos-13          # Intel
+            asset: macos-x64
+          - os: windows-latest
+            asset: windows-x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin, includes jlink + jpackage)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Compute bundle version
+        shell: bash
+        run: |
+          REF="${GITHUB_REF_NAME:-}"
+          SLUG="${REF//\//-}"          # branch names may contain '/'; artifact names must not
+          VER="${SLUG#v}"              # human-facing version used in the download filename
+          # jpackage's --app-version must be a dotted-numeric string whose first
+          # component is >= 1 (enforced on macOS and Windows). Real tags below
+          # 1.0.0 (e.g. v0.1.0), pre-release tags, and branch builds don't qualify,
+          # so stamp a synthetic 1.0.0 on the embedded bundle metadata while keeping
+          # the true version in the download filename.
+          if [[ "$VER" =~ ^[1-9][0-9]*\.[0-9]+\.[0-9]+$ ]]; then
+            echo "BUNDLE_VERSION=$VER" >> "$GITHUB_ENV"
+          else
+            echo "BUNDLE_VERSION=1.0.0" >> "$GITHUB_ENV"
+          fi
+          echo "PKG=PdfCompressionService-${VER}-${{ matrix.asset }}" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=$VER" >> "$GITHUB_ENV"
+
+      - name: Stamp Maven project version from the tag (tagged releases only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: ./mvnw -B -ntp org.codehaus.mojo:versions-maven-plugin:2.16.2:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
+
+      - name: Build application jar
+        shell: bash
+        run: ./mvnw -B -ntp clean package -DbuildNumber="${{ github.run_number }}" -DgitSha="${{ github.sha }}"
+
+      - name: Assemble self-contained bundle (jlink + jpackage)
+        shell: bash
+        run: packaging/build-bundle.sh "$BUNDLE_VERSION"
+
+      - name: Name the staged bundle directory
+        shell: bash
+        run: mv dist/stage "dist/$PKG"
+
+      - name: Archive bundle (macOS - ditto preserves runtime symlinks)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: ditto -c -k --keepParent "dist/$PKG" "$PKG.zip"
+
+      - name: Archive bundle (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: (cd dist && zip -q -r -y "../$PKG.zip" "$PKG")
+
+      - name: Archive bundle (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path "dist/$env:PKG" -DestinationPath "$env:PKG.zip"
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PKG }}
+          path: ${{ env.PKG }}.zip
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Portable jar (small download; requires the user to have Java 21 installed)
+  # ---------------------------------------------------------------------------
+  portable-jar:
+    name: Portable jar (needs Java 21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Compute version
+        shell: bash
+        run: |
+          REF="${GITHUB_REF_NAME:-}"
+          SLUG="${REF//\//-}"
+          [[ "$SLUG" =~ ^v[0-9] ]] && V="${SLUG#v}" || V="0.0.0-dev"
+          echo "PKG=PdfCompressionService-${V}-portable-jar" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=$V" >> "$GITHUB_ENV"
+
+      - name: Stamp Maven project version from the tag (tagged releases only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: ./mvnw -B -ntp org.codehaus.mojo:versions-maven-plugin:2.16.2:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
+
+      - name: Build application jar
+        shell: bash
+        run: ./mvnw -B -ntp clean package -DbuildNumber="${{ github.run_number }}" -DgitSha="${{ github.sha }}"
+
+      - name: Stage jar + instructions
+        shell: bash
+        run: |
+          mkdir -p "dist/$PKG"
+          # Package the fat jar under a clean, unversioned name so `java -jar
+          # PdfCompressionService.jar` works verbatim (the version stays visible
+          # via the zip name and the GET /version endpoint). Glob loop rather than
+          # `ls | grep | head` to avoid a SIGPIPE trip under `set -o pipefail`.
+          JAR=""
+          for f in target/PdfCompressionService-*.jar; do
+            case "$f" in *.original) continue ;; esac
+            JAR="$f"
+          done
+          cp "$JAR" "dist/$PKG/PdfCompressionService.jar"
+          cat > "dist/$PKG/INSTRUCTIONS.txt" <<'EOF'
+          PDF Compression Service - Portable jar
+          ======================================
+
+          This is the small, cross-platform (OS-agnostic) download. It requires
+          Java 21 (or newer) to be installed. If you would rather not install
+          Java, download the self-contained bundle for your operating system
+          instead.
+
+          CHECK YOUR JAVA VERSION
+            java -version          (must report 21 or newer)
+            Get Java 21 from https://adoptium.net if needed.
+
+          RUN
+            java -jar PdfCompressionService.jar
+            The service listens on http://localhost:7777
+
+          COMPRESS A PDF (from another terminal)
+            curl -X POST -F 'file=@/path/to/input.pdf' \
+                 http://localhost:7777/compressPdf --output compressed.pdf
+
+          VIEW LOGS
+            http://localhost:7777/logs
+
+          CHECK THE VERSION
+            http://localhost:7777/version
+
+          TUNING (optional)
+            java -jar PdfCompressionService.jar \
+                 --server.port=8080 --pdf.compression.target-dpi=120
+
+          Project: https://github.com/fkitsantas/PdfCompressionService
+          License: GPL-3.0
+          EOF
+
+      - name: Archive
+        shell: bash
+        run: (cd dist && zip -q -r "../$PKG.zip" "$PKG")
+
+      - name: Upload portable-jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PKG }}
+          path: ${{ env.PKG }}.zip
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Publish a GitHub Release with every asset (tag pushes only)
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Publish GitHub Release
+    needs: [bundle, portable-jar]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all built assets
+        uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          mapfile -t ZIPS < <(find assets -name '*.zip' | sort)
+          printf 'asset: %s\n' "${ZIPS[@]}"
+          NOTES="$(cat <<'NOTES'
+          ## Downloads
+
+          **Run without installing Java** — self-contained bundles (pick your OS):
+          - `*-macos-arm64.zip` — macOS (Apple Silicon)
+          - `*-macos-x64.zip` — macOS (Intel)
+          - `*-linux-x64.zip` — Linux (x64)
+          - `*-windows-x64.zip` — Windows (x64)
+
+          Each bundle embeds a trimmed Java 21 runtime; unzip it and follow the
+          included `INSTRUCTIONS.txt`. The service listens on http://localhost:7777.
+
+          **Already have Java 21?** `*-portable-jar.zip` is a much smaller download
+          (`java -jar ...`).
+          NOTES
+          )"
+          # Idempotent: re-running for an existing tag updates its assets rather than failing.
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${ZIPS[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "PDF Compression Service $TAG" --notes "$NOTES" "${ZIPS[@]}"
+          fi
