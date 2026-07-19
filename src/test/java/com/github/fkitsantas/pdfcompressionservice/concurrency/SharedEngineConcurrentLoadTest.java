@@ -121,7 +121,7 @@ class SharedEngineConcurrentLoadTest {
                 threadsBefore, PdfCompressionEngine.IMAGE_THREAD_NAME_PREFIX);
         assertThat(newWorkerThreads)
                 .as("the shared engine's executor must actually have processed images under this concurrent " +
-                        "load - an empty result means compress() never dispatched to pdf-img-* workers")
+                        "load, an empty result means compress() never dispatched to pdf-img-* workers")
                 .isNotEmpty();
     }
 

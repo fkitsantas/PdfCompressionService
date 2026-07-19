@@ -70,7 +70,7 @@ class PdfCompressionEngineFidelityTest {
         int g = (topStripPixel >> 8) & 0xFF;
         int b = topStripPixel & 0xFF;
         assertThat(r + g + b)
-                .as("near-transparent region rendered as RGB(%d,%d,%d) - looks black, transparency was destroyed", r, g, b)
+                .as("near-transparent region rendered as RGB(%d,%d,%d), looks black, transparency was destroyed", r, g, b)
                 .isGreaterThan(200);
     }
 

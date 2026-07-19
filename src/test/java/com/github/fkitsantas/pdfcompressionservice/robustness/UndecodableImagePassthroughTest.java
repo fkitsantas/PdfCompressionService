@@ -51,7 +51,7 @@ class UndecodableImagePassthroughTest {
         byte[] original = InvoiceCorpusFactory.mixedCorpusWithUndecodableImage();
 
         assertThatCode(() -> engine.compress(original, "mixed-poison.pdf", "req-poison-throws"))
-                .as("a single undecodable image must never abort the whole compression - no exception, no 500")
+                .as("a single undecodable image must never abort the whole compression, no exception, no 500")
                 .doesNotThrowAnyException();
     }
 

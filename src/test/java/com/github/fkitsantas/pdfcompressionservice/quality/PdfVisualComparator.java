@@ -190,7 +190,7 @@ public final class PdfVisualComparator {
         if (a.getWidth() != b.getWidth() || a.getHeight() != b.getHeight()) {
             throw new IllegalStateException("Rendered pages differ in pixel size: "
                     + a.getWidth() + "x" + a.getHeight() + " vs " + b.getWidth() + "x" + b.getHeight()
-                    + " - page geometry was not preserved, or comparator was given mismatched pages.");
+                    + ", page geometry was not preserved, or comparator was given mismatched pages.");
         }
     }
 }

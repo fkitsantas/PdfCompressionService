@@ -61,7 +61,7 @@ final class CompressionEquivalence {
      */
     static void assertStatsEquivalent(CompressionResult expected, CompressionResult actual) {
         assertThat(actual.getOriginalBytes())
-                .as("originalBytes must be identical - both runs compress the same source bytes")
+                .as("originalBytes must be identical, both runs compress the same source bytes")
                 .isEqualTo(expected.getOriginalBytes());
         assertThat(actual.getCompressedBytes())
                 .as("compressedBytes (a length, not the /ID-bearing content) must be identical regardless of parallelism")
@@ -113,7 +113,7 @@ final class CompressionEquivalence {
         for (int i = 0; i < expectedPageCount; i++) {
             double diffPercent = PdfVisualComparator.maxPixelDiffPercent(pdfA, pdfB, RENDER_DPI, i);
             assertThat(diffPercent)
-                    .as("page %d: rendered pixels must be pixel-for-pixel identical between the two runs - " +
+                    .as("page %d: rendered pixels must be pixel-for-pixel identical between the two runs, " +
                             "resize/encode is a deterministic per-image function, so thread scheduling must not " +
                             "change a single output pixel", i)
                     .isEqualTo(0.0);
@@ -149,7 +149,7 @@ final class CompressionEquivalence {
                 return image;
             }
         }
-        throw new IllegalStateException("No image XObject found on page - fixture shape assumption violated");
+        throw new IllegalStateException("No image XObject found on page, fixture shape assumption violated");
     }
 
     private static long encodedLength(PDImageXObject image) {

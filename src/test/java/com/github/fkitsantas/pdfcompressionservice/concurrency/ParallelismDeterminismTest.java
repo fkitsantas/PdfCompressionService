@@ -77,7 +77,7 @@ class ParallelismDeterminismTest {
                 threadsBefore, PdfCompressionEngine.IMAGE_THREAD_NAME_PREFIX);
         assertThat(newWorkerThreads)
                 .as("parallelism=4 compressing %d eligible images (> the default threshold of 2) must dispatch " +
-                        "work to at least 2 distinct pdf-img-* worker threads - an empty/singleton result means " +
+                        "work to at least 2 distinct pdf-img-* worker threads, an empty/singleton result means " +
                         "the parallel path never actually executed", PAGE_COUNT)
                 .hasSizeGreaterThanOrEqualTo(2);
     }

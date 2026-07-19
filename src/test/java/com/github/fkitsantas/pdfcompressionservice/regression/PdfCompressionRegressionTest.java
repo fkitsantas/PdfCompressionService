@@ -113,7 +113,7 @@ class PdfCompressionRegressionTest {
         int b = pixel & 0xFF;
         boolean looksBlack = r < 10 && g < 10 && b < 10;
         assertThat(looksBlack)
-                .as("pixel (%d,%d) rendered as RGB(%d,%d,%d) - transparency was flattened to black", x, y, r, g, b)
+                .as("pixel (%d,%d) rendered as RGB(%d,%d,%d), transparency was flattened to black", x, y, r, g, b)
                 .isFalse();
     }
 
