@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.13</version>
+        <version>4.1.0</version>
         <relativePath/>
     </parent>
 
@@ -23,8 +23,8 @@
     <description>Intranet PDF compression microservice for reducing invoice image payloads while preserving document fidelity.</description>
 
     <properties>
-        <!-- Toolchain: Temurin 21 LTS (matches the macOS deployment host). -->
-        <java.version>21</java.version>
+        <!-- Toolchain: Temurin 25 LTS (matches the macOS deployment host). -->
+        <java.version>25</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!--
@@ -34,7 +34,6 @@
         -->
         <pdfbox.version>3.0.8</pdfbox.version>
         <jbig2.version>3.0.5</jbig2.version>
-        <commons-text.version>1.15.0</commons-text.version>
 
         <!--
             Build-stamping defaults, baked into META-INF/build-info.properties and
@@ -82,16 +81,20 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- HTML-escaping for the /logs view. -->
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-text</artifactId>
-            <version>${commons-text.version}</version>
-        </dependency>
-
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            Spring Boot 4 split the MockMvc/@WebMvcTest test slice out of
+            spring-boot-test-autoconfigure into this web-mvc-specific module; the
+            @SpringBootTest + @AutoConfigureMockMvc web tests need it on the test path.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -13,16 +13,16 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: Build & test (JDK 21)
+    name: Build & test (JDK 25)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - name: Set up JDK 21 (Temurin)
-        uses: actions/setup-java@v4
+      - name: Set up JDK 25 (Temurin)
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
           cache: maven
 
       - name: Build and run the full test suite
@@ -30,7 +30,7 @@ jobs:
 
       - name: Publish test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: surefire-reports
           path: target/surefire-reports/

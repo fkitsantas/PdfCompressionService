@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
 # Builds a self-contained PDF Compression Service bundle that runs WITHOUT any
-# separately installed Java. It bundles a trimmed Java 21 runtime (via jlink)
+# separately installed Java. It bundles a trimmed Java 25 runtime (via jlink)
 # together with the application (via jpackage --type app-image), then stages the
 # native launcher next to a plain-language INSTRUCTIONS.txt ready to be zipped.
 #
 # Works on macOS, Linux and Windows (Git Bash / MSYS on GitHub Actions runners).
-# Requires a JDK 21 on PATH (jlink + jpackage) and a prior `mvn package`/`verify`
+# Requires a JDK 25 on PATH (jlink + jpackage) and a prior `mvn package`/`verify`
 # so that target/PdfCompressionService-<version>.jar exists.
 #
 # Usage: packaging/build-bundle.sh [bundle-version]
@@ -60,7 +60,7 @@ cp "$APP_JAR" "$BUILD/input/"
 # PDFBox needs, java.sql/naming/xml for Spring, etc.) so nothing reached via
 # reflection is missing; the jdk.* additions cover TLS crypto, sun.misc.Unsafe,
 # the zip filesystem, and full charset/locale support for PDF text handling.
-echo "==> jlink: building trimmed Java 21 runtime"
+echo "==> jlink: building trimmed Java 25 runtime"
 jlink \
   --add-modules java.se,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.unsupported,jdk.zipfs,jdk.charsets,jdk.localedata \
   --strip-debug --no-header-files --no-man-pages --compress=zip-6 \

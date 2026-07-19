@@ -27,7 +27,7 @@ A small, self-contained web service that **shrinks PDF files by intelligently re
 
 ## Download & run (no Java required)
 
-Every release ships **self-contained bundles that embed their own Java 21 runtime**. You do not need Java (or anything else) installed.
+Every release ships **self-contained bundles that embed their own Java 25 runtime**. You do not need Java (or anything else) installed.
 
 1. Go to the [**Releases**](https://github.com/fkitsantas/PdfCompressionService/releases) page and download the bundle for your OS:
    - `…-macos-arm64.zip`, macOS (Apple Silicon)
@@ -35,7 +35,7 @@ Every release ships **self-contained bundles that embed their own Java 21 runtim
    - `…-linux-x64.zip`, Linux (x64)
    - `…-windows-x64.zip`, Windows (x64)
 
-   > **On an Intel Mac?** The native Intel bundle isn't always published (GitHub's Intel macOS build runners are scarce). If it's missing from a release, just use the [**portable jar**](#portable-jar-os-agnostic-if-you-already-have-java-21) below, `java -jar PdfCompressionService.jar`, which runs on any OS, including Intel Macs, and only needs Java 21.
+   > **On an Intel Mac?** The native Intel bundle isn't always published (GitHub's Intel macOS build runners are scarce). If it's missing from a release, just use the [**portable jar**](#portable-jar-os-agnostic-if-you-already-have-java-25) below, `java -jar PdfCompressionService.jar`, which runs on any OS, including Intel Macs, and only needs Java 25.
 2. Unzip it and follow the included `INSTRUCTIONS.txt`. In short:
 
    | OS | Launch |
@@ -58,13 +58,13 @@ Every release ships **self-contained bundles that embed their own Java 21 runtim
 
 ## Alternatives
 
-### Portable jar (OS-agnostic, if you already have Java 21)
+### Portable jar (OS-agnostic, if you already have Java 25)
 
-The classic way to run it: one small, platform-independent jar. Every release includes `…-portable-jar.zip` alongside the OS bundles. This runs **exactly as before**. The only change from older releases is that it now requires Java 21 (rather than Java 8).
+The classic way to run it: one small, platform-independent jar. Every release includes `…-portable-jar.zip` alongside the OS bundles. This runs **exactly as before**. The only change from older releases is that it now requires Java 25 (rather than Java 8).
 
 **Step 1: Download the jar**
 
-Download `…-portable-jar.zip` from the [Releases](https://github.com/fkitsantas/PdfCompressionService/releases) page and unzip it into a folder. (It also ships an `INSTRUCTIONS.txt`.) Make sure Java 21+ is installed, check with `java -version`; get it from [adoptium.net](https://adoptium.net) if needed.
+Download `…-portable-jar.zip` from the [Releases](https://github.com/fkitsantas/PdfCompressionService/releases) page and unzip it into a folder. (It also ships an `INSTRUCTIONS.txt`.) Make sure Java 25+ is installed, check with `java -version`; get it from [adoptium.net](https://adoptium.net) if needed.
 
 **Step 2: Run the jar**
 
@@ -89,7 +89,7 @@ Replace `/path/to/your/sample.pdf` with the actual path to your PDF file. The op
 
 ### Build & run from source
 
-Requires JDK 21. The Maven Wrapper is included, so no separate Maven install is needed.
+Requires JDK 25. The Maven Wrapper is included, so no separate Maven install is needed.
 
 ```bash
 git clone https://github.com/fkitsantas/PdfCompressionService.git
@@ -98,7 +98,7 @@ cd PdfCompressionService
 ./mvnw spring-boot:run # start on http://localhost:7777
 ```
 
-To produce a standalone bundle locally (needs a JDK 21 with `jlink`/`jpackage` on `PATH`):
+To produce a standalone bundle locally (needs a JDK 25 with `jlink`/`jpackage` on `PATH`):
 
 ```bash
 ./mvnw -B package
@@ -178,7 +178,7 @@ All settings live in `src/main/resources/application.properties` and can be over
 | `pdf.compression.parallelism` | `0` | per-image resize/encode worker threads; `0` = auto (`availableProcessors()`), `1` = sequential |
 | `pdf.compression.parallel-image-threshold` | `2` | minimum eligible images before the parallel path is used |
 | `pdf.compression.max-concurrent-compressions` | `0` | admission gate bounding documents processed at once (peak-heap safety); `0` = auto (`cores × 4`); excess requests block |
-| `spring.threads.virtual.enabled` | `true` | handle requests on Java 21 virtual threads (blocking-friendly concurrency) |
+| `spring.threads.virtual.enabled` | `true` | handle requests on Java 25 virtual threads (blocking-friendly concurrency) |
 
 Example, run on a different port with more aggressive downsampling:
 
@@ -196,9 +196,9 @@ java -jar PdfCompressionService-*.jar --server.port=8080 --pdf.compression.targe
 
 ## Development
 
-- **Stack:** Java 21, Spring Boot 3.3.13, Apache PDFBox 3.0.8, jbig2-imageio (runtime).
+- **Stack:** Java 25, Spring Boot 4.1.0, Apache PDFBox 3.0.8, jbig2-imageio (runtime).
 - **Tests:** `./mvnw verify` runs the full suite (engine behaviour & fidelity, web contract, regression, concurrency). The tests are the executable specification for compression behaviour.
-- **CI:** every push and pull request is built and tested on JDK 21 via [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+- **CI:** every push and pull request is built and tested on JDK 25 via [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Releasing
 
