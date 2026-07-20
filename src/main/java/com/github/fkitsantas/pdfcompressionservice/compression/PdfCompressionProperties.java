@@ -45,6 +45,8 @@ public class PdfCompressionProperties {
     private int parallelism = 0;
     private int parallelImageThreshold = 2;
     private int maxConcurrentCompressions = 0;
+    private boolean deduplicateImages = true;
+    private boolean stripMetadata = false;
 
     public int getTargetDpi() {
         return targetDpi;
@@ -227,5 +229,38 @@ public class PdfCompressionProperties {
         return maxConcurrentCompressions == 0
                 ? Math.max(1, Runtime.getRuntime().availableProcessors() * 4)
                 : maxConcurrentCompressions;
+    }
+
+    /**
+     * Whether to collapse byte-identical images that are embedded as separate
+     * objects into a single shared object (default {@code true}). Producers
+     * frequently embed a repeated logo/letterhead as a distinct object on every
+     * page; the engine already shares images that reference one object, and this
+     * additionally merges duplicates that do not, which can be a large saving on
+     * multi-page documents. Only images whose full fingerprint (dimensions,
+     * colour space, filters, encoded bytes and soft mask) matches are merged, so
+     * it is lossless.
+     */
+    public boolean isDeduplicateImages() {
+        return deduplicateImages;
+    }
+
+    public void setDeduplicateImages(boolean deduplicateImages) {
+        this.deduplicateImages = deduplicateImages;
+    }
+
+    /**
+     * Whether to strip document metadata (the XMP {@code /Metadata} stream and
+     * the {@code /Info} dictionary) from the output (default {@code false}).
+     * This removes titles, authors, timestamps and producer strings, so it is
+     * opt-in: it saves a little space and avoids leaking that metadata, at the
+     * cost of losing it.
+     */
+    public boolean isStripMetadata() {
+        return stripMetadata;
+    }
+
+    public void setStripMetadata(boolean stripMetadata) {
+        this.stripMetadata = stripMetadata;
     }
 }

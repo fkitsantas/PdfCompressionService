@@ -126,6 +126,27 @@ public final class InvoiceCorpusFactory {
     }
 
     /**
+     * A multi-page PDF that draws the <em>same</em> image on every page, but
+     * embeds it as a <em>separate</em> image object per page (identical bytes,
+     * distinct COS objects), i.e. the repeated-logo/letterhead case that the
+     * engine's same-object sharing does not catch but content-dedup does.
+     */
+    public static byte[] sameImageRepeatedAcrossPagesAsSeparateObjects(int pageCount) throws IOException {
+        BufferedImage logo = syntheticPhotographicImage(900, 700);
+        try (PDDocument doc = new PDDocument()) {
+            for (int i = 0; i < pageCount; i++) {
+                PDPage page = new PDPage(PDRectangle.A4);
+                doc.addPage(page);
+                PDImageXObject image = JPEGFactory.createFromImage(doc, logo, 0.9f);
+                try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+                    cs.drawImage(image, 0, 0, page.getMediaBox().getWidth(), page.getMediaBox().getHeight());
+                }
+            }
+            return save(doc);
+        }
+    }
+
+    /**
      * A one-page PDF whose resources contain a real, optimizable image
      * alongside a sibling XObject with an invalid {@code /Subtype}, which makes
      * {@code PDResources.getXObject(name)} throw {@code IOException} during

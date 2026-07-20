@@ -2,8 +2,14 @@ package com.github.fkitsantas.pdfcompressionservice.compression;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,6 +31,7 @@ import jakarta.annotation.PreDestroy;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.cos.COSStream;
 import org.apache.pdfbox.io.IOUtils;
 import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -246,6 +253,9 @@ public class PdfCompressionEngine {
             int recompressed = stats.recompressed();
             int unchanged = stats.unchanged();
 
+            if (properties.isStripMetadata()) {
+                stripMetadata(doc);
+            }
             byte[] candidateBytes = save(doc);
 
             long originalLen = pdfBytes.length;
@@ -438,7 +448,78 @@ public class PdfCompressionEngine {
             }
         }
 
+        if (properties.isDeduplicateImages()) {
+            deduplicateByContent(entries, outcomes, referencesByImage, requestId);
+        }
         return new ImageProcessingStats(inspected, downsampled, recompressed, unchanged);
+    }
+
+    /**
+     * Collapses images with identical content that are embedded as separate
+     * objects into a single shared object. For each unique image its final form
+     * (the accepted replacement, or the untouched original) is fingerprinted
+     * over its dimensions, colour space, filters, encoded bytes and soft mask;
+     * duplicates are re-pointed at the first object seen with that fingerprint,
+     * leaving the extra copies unreferenced so the writer drops them. Merging
+     * only ever happens on a full-fingerprint match, so it is lossless.
+     * Fingerprinting failures are swallowed per image (that image is just not
+     * deduplicated), so a quirky image can never fail the request.
+     */
+    private void deduplicateByContent(List<Map.Entry<COSBase, PDImageXObject>> entries,
+                                      ImageOptimizer.Outcome[] outcomes,
+                                      Map<COSBase, List<ImageRef>> referencesByImage,
+                                      String requestId) {
+        Map<String, PDImageXObject> canonicalByFingerprint = new HashMap<>();
+        int merged = 0;
+        for (int i = 0; i < entries.size(); i++) {
+            ImageOptimizer.Outcome outcome = outcomes[i];
+            PDImageXObject finalImage = outcome != null && outcome.replacement() != null
+                    ? outcome.replacement()
+                    : entries.get(i).getValue();
+            String fingerprint;
+            try {
+                fingerprint = fingerprint(finalImage);
+            } catch (Exception e) {
+                continue; // cannot fingerprint this image: leave it as-is
+            }
+            PDImageXObject canonical = canonicalByFingerprint.putIfAbsent(fingerprint, finalImage);
+            if (canonical != null && canonical.getCOSObject() != finalImage.getCOSObject()) {
+                for (ImageRef ref : referencesByImage.getOrDefault(entries.get(i).getKey(), List.of())) {
+                    ref.resources().put(ref.name(), canonical);
+                }
+                merged++;
+            }
+        }
+        if (merged > 0) {
+            log.debug("requestId={} action=deduplicated-images count={}", requestId, merged);
+        }
+    }
+
+    /** SHA-256 over the image's identity (dimensions, colour space, filters) and its encoded bytes plus soft mask. */
+    private static String fingerprint(PDImageXObject image) throws IOException, NoSuchAlgorithmException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(("w=" + image.getWidth() + ";h=" + image.getHeight()
+                + ";bpc=" + image.getBitsPerComponent()
+                + ";cs=" + image.getColorSpace().getName()
+                + ";f=" + String.valueOf(((COSStream) image.getCOSObject()).getFilters()))
+                .getBytes(StandardCharsets.UTF_8));
+        updateWithRawStream(digest, (COSStream) image.getCOSObject());
+        PDImageXObject softMask = image.getSoftMask();
+        if (softMask != null) {
+            digest.update((byte) 0x01);
+            updateWithRawStream(digest, (COSStream) softMask.getCOSObject());
+        }
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private static void updateWithRawStream(MessageDigest digest, COSStream stream) throws IOException {
+        try (InputStream in = stream.createRawInputStream()) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+        }
     }
 
     private List<TransformAttempt> transformBatchSerially(List<Integer> indices,
@@ -538,6 +619,12 @@ public class PdfCompressionEngine {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         doc.save(out);
         return out.toByteArray();
+    }
+
+    /** Removes the XMP {@code /Metadata} stream and the {@code /Info} dictionary from the document. */
+    private static void stripMetadata(PDDocument doc) {
+        doc.getDocumentCatalog().getCOSObject().removeItem(COSName.METADATA);
+        doc.getDocument().getTrailer().removeItem(COSName.INFO);
     }
 
     // ------------------------------------------------------------------

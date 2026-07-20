@@ -175,6 +175,8 @@ All settings live in `src/main/resources/application.properties` and can be over
 | `pdf.compression.larger-result-policy` | `keep_original` | `keep_original` or `use_smallest` when a re-encode is not smaller |
 | `pdf.compression.stream-cache` | `temp_file` | `temp_file` (low memory) or `memory` for PDFBox scratch data |
 | `pdf.compression.recompress-cmyk` | `false` | whether to recompress CMYK images (changes colour space to RGB) |
+| `pdf.compression.deduplicate-images` | `true` | merge byte-identical images embedded as separate objects (e.g. a per-page logo) into one shared object |
+| `pdf.compression.strip-metadata` | `false` | strip XMP/Info metadata (titles, authors, timestamps, producer) from the output (opt-in) |
 | `pdf.compression.parallelism` | `0` | per-image resize/encode worker threads; `0` = auto (`availableProcessors()`), `1` = sequential |
 | `pdf.compression.parallel-image-threshold` | `2` | minimum eligible images before the parallel path is used |
 | `pdf.compression.max-concurrent-compressions` | `0` | admission gate bounding documents processed at once (peak-heap safety); `0` = auto (`cores × 4`); excess requests block |
