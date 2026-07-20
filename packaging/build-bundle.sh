@@ -68,9 +68,12 @@ cp "$APP_JAR" "$BUILD/input/"
 # PDFBox needs, java.sql/naming/xml for Spring, etc.) so nothing reached via
 # reflection is missing; the jdk.* additions cover TLS crypto, sun.misc.Unsafe,
 # the zip filesystem, and full charset/locale support for PDF text handling.
+# jdk.management adds com.sun.management (GC notification info) which java.se does
+# NOT pull in; without it Micrometer's JvmGcMetrics logs a warning at startup and
+# GC metrics are unavailable on /actuator/prometheus.
 echo "==> jlink: building trimmed Java 25 runtime"
 jlink \
-  --add-modules java.se,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.unsupported,jdk.zipfs,jdk.charsets,jdk.localedata \
+  --add-modules java.se,jdk.management,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.unsupported,jdk.zipfs,jdk.charsets,jdk.localedata \
   --strip-debug --no-header-files --no-man-pages --compress=zip-6 \
   --output "$BUILD/runtime"
 
