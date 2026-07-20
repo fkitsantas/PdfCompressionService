@@ -170,6 +170,17 @@ final class ImageOptimizer {
 
         int origW = original.getWidth();
         int origH = original.getHeight();
+
+        // Decode-bomb guard: never decode an image whose declared pixel count exceeds
+        // the ceiling. Its raster would allocate gigabytes and exhaust the heap. The
+        // image is left untouched (the whole document is still returned), so this is a
+        // memory-safety guard, not an acceptance limit. Runs here, in the no-decode
+        // gate, precisely so the oversized raster is never materialized.
+        long ceiling = properties.getMaxDecodePixels();
+        if (ceiling > 0 && (long) origW * origH > ceiling) {
+            return new GateResult.Decided(Outcome.skip());
+        }
+
         boolean bitonal = original.getBitsPerComponent() == 1;
 
         double scale = computeScale(origW, origH, usagePoints);

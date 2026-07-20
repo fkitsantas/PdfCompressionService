@@ -210,6 +210,7 @@ All settings live in `src/main/resources/application.properties` and can be over
 | `pdf.compression.target-dpi` | `150` | target resolution images are downsampled toward |
 | `pdf.compression.jpeg-quality` | `0.75` | JPEG quality for photographic images (0.0–1.0) |
 | `pdf.compression.max-image-dimension` | `0` | optional cap on a re-encoded image's longest edge, in pixels (`0` = no cap; not an acceptance limit, any input size is processed) |
+| `pdf.compression.max-decode-pixels` | `500000000` | decode-bomb guard: images with more declared pixels than this are passed through unoptimized instead of decoded (`0` = disabled; not an acceptance limit, the document is always returned) |
 | `pdf.compression.min-dimension` | `16` | images smaller than this (px) are left untouched |
 | `pdf.compression.min-byte-size` | `8192` | images encoded smaller than this (bytes) are skipped |
 | `pdf.compression.min-reduction-ratio` | `0.10` | a re-encode is only kept if it saves at least this fraction |

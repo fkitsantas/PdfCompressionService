@@ -35,6 +35,7 @@ public class PdfCompressionProperties {
 
     private int targetDpi = 150;
     private int maxImageDimension = 0;
+    private long maxDecodePixels = 500_000_000L;
     private float jpegQuality = 0.75f;
     private int minDimension = 16;
     private long minByteSize = 8192L;
@@ -59,6 +60,7 @@ public class PdfCompressionProperties {
         PdfCompressionProperties c = new PdfCompressionProperties();
         c.targetDpi = this.targetDpi;
         c.maxImageDimension = this.maxImageDimension;
+        c.maxDecodePixels = this.maxDecodePixels;
         c.jpegQuality = this.jpegQuality;
         c.minDimension = this.minDimension;
         c.minByteSize = this.minByteSize;
@@ -105,6 +107,34 @@ public class PdfCompressionProperties {
         Assert.isTrue(maxImageDimension >= 0,
                 () -> "pdf.compression.max-image-dimension must be >= 0 (0 = no cap) but was " + maxImageDimension);
         this.maxImageDimension = maxImageDimension;
+    }
+
+    /**
+     * Safety ceiling on an image's <b>declared</b> pixel count (width x height)
+     * above which the engine will <b>not decode</b> it, leaving it untouched in
+     * the output. This guards against a decode bomb: an image whose encoded
+     * stream is tiny but whose declared dimensions are enormous (e.g. a
+     * 60000x60000 Flate/JBIG2 image), which would allocate gigabytes when
+     * decoded to a raster and exhaust the heap.
+     *
+     * <p>This is <b>not</b> an acceptance limit: the document is always accepted
+     * and returned in full; only that one oversized image is passed through
+     * unoptimized. The default ({@code 500_000_000}, 500 megapixels) sits far
+     * above any legitimate photographic or large-format scanned image (a 48 MP
+     * photo, or an A0 page at 600 DPI, is well under it) while still stopping the
+     * gigapixel bombs. {@code 0} disables the guard entirely.
+     *
+     * <p>Deliberately not overridable per request (see {@link CompressionOptions}):
+     * a client must not be able to raise the service's decode-time memory ceiling.
+     */
+    public long getMaxDecodePixels() {
+        return maxDecodePixels;
+    }
+
+    public void setMaxDecodePixels(long maxDecodePixels) {
+        Assert.isTrue(maxDecodePixels >= 0L,
+                () -> "pdf.compression.max-decode-pixels must be >= 0 (0 = disabled) but was " + maxDecodePixels);
+        this.maxDecodePixels = maxDecodePixels;
     }
 
     public float getJpegQuality() {

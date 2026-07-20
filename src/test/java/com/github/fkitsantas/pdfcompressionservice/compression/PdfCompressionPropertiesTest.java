@@ -61,6 +61,17 @@ class PdfCompressionPropertiesTest {
     }
 
     @Test
+    void maxDecodePixelsAllowsZeroToDisableAnyPositiveAndRejectsNegative() {
+        PdfCompressionProperties props = new PdfCompressionProperties();
+
+        props.setMaxDecodePixels(0L);            // 0 = guard disabled
+        props.setMaxDecodePixels(1L);
+        props.setMaxDecodePixels(500_000_000L);  // the default ceiling
+
+        assertThatIllegalArgumentException().isThrownBy(() -> props.setMaxDecodePixels(-1L));
+    }
+
+    @Test
     void jpegQualityAcceptsFullUnitIntervalAndRejectsOutside() {
         PdfCompressionProperties props = new PdfCompressionProperties();
 
