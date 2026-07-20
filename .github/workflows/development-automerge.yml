@@ -8,6 +8,13 @@ name: Development auto-merge
 #
 # The push to `main` uses the built-in GITHUB_TOKEN, which by design does not
 # retrigger workflows, so there is no loop.
+#
+# After merging, it also cuts a release automatically: it bumps the patch of the
+# latest vX.Y.Z tag, pushes the new tag, and triggers the Release workflow on it.
+# (A GITHUB_TOKEN tag push does not fire the release's push trigger, so the
+# release is started via an explicit workflow_dispatch, which does run from the
+# token.) Push a vX.Y.0 tag by hand any time you want a minor/major bump instead;
+# the next automatic release simply continues from whatever the latest tag is.
 
 on:
   push:
@@ -15,6 +22,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # to dispatch the Release workflow after merging
 
 # Serialize merges so two quick pushes can't race to update main.
 concurrency:
@@ -54,3 +62,26 @@ jobs:
             echo "main merged (non-fast-forward)"
           fi
           git push origin main
+
+      - name: Auto-tag the next patch version and trigger a release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch --tags --force --quiet origin
+          # Latest semantic-version tag (vMAJOR.MINOR.PATCH); ignores legacy shapes
+          # like v.0.0.7. Falls back to v0.0.0 for a fresh repo.
+          LATEST="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n1)"
+          LATEST="${LATEST:-v0.0.0}"
+          IFS=. read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+          NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          if git rev-parse -q --verify "refs/tags/${NEXT}" >/dev/null; then
+            echo "Tag ${NEXT} already exists, nothing to release."
+            exit 0
+          fi
+          echo "Latest release tag ${LATEST} -> tagging ${NEXT}"
+          git tag -a "${NEXT}" -m "Release ${NEXT}" "${GITHUB_SHA}"
+          git push origin "${NEXT}"
+          # workflow_dispatch on the new tag ref: the Release workflow then sees
+          # github.ref = refs/tags/${NEXT} and builds/publishes it exactly as a
+          # hand-pushed tag would (workflow_dispatch runs even from GITHUB_TOKEN).
+          gh workflow run release.yml --repo "${GITHUB_REPOSITORY}" --ref "${NEXT}"
