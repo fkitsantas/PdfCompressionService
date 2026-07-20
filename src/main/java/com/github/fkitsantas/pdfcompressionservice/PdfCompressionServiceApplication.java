@@ -1,5 +1,6 @@
 package com.github.fkitsantas.pdfcompressionservice;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -24,7 +25,8 @@ public class PdfCompressionServiceApplication {
      *
      * @param handlerMapping The object to access request mapping handler details.
      */
-    public PdfCompressionServiceApplication(RequestMappingHandlerMapping handlerMapping) {
+    public PdfCompressionServiceApplication(
+            @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping handlerMapping) {
         this.handlerMapping = handlerMapping;
     }
 

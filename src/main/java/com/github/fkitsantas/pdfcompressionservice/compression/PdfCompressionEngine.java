@@ -149,6 +149,23 @@ public class PdfCompressionEngine {
     }
 
     /**
+     * The admission gate's total size: the maximum number of documents that may
+     * be processed concurrently. Exposed for the {@code pcs.compression.slots.max}
+     * metric gauge.
+     */
+    public int getMaxConcurrentCompressions() {
+        return properties.resolveMaxConcurrentCompressions();
+    }
+
+    /**
+     * Documents currently holding an admission permit (i.e. being processed right
+     * now). Exposed for the {@code pcs.compression.slots.inflight} metric gauge.
+     */
+    public int getInFlightCompressions() {
+        return getMaxConcurrentCompressions() - compressionPermits.availablePermits();
+    }
+
+    /**
      * How long an idle {@code pdf-img-*} worker thread is kept alive before it
      * terminates (paired with {@code allowCoreThreadTimeOut(true)} below). This
      * pool bursts: a request's image batch fans out and finishes quickly, then

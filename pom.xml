@@ -57,6 +57,23 @@
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
+        <!--
+            Operational endpoints under /actuator: liveness/readiness probes,
+            health, and application metrics. Exposure is restricted in
+            application.properties to health/info/metrics/prometheus only.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Exposes the Micrometer metrics in Prometheus text format at /actuator/prometheus. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Binds @ConfigurationProperties metadata for pdf.compression.* (compile-time helper). -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

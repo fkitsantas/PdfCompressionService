@@ -157,6 +157,30 @@ Returns the running build's identity as JSON, so a deployed instance can be trac
 
 `version` is the released semantic version (or `…-SNAPSHOT` for a dev build), `buildNumber` is the CI run number, and `gitSha` is the commit the build came from.
 
+### Operational endpoints (`/actuator`)
+
+Spring Boot Actuator exposes a deliberately small operational surface (only `health`, `info`, `metrics`, and `prometheus`, never `env`/`beans`/`heapdump`):
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /actuator/health` | overall health, including a custom `compression` indicator that probes temp-dir writability (every request streams through temp files) and reports admission-gate usage |
+| `GET /actuator/health/liveness` | liveness probe group for orchestrators |
+| `GET /actuator/health/readiness` | readiness probe group |
+| `GET /actuator/prometheus` | Micrometer metrics in Prometheus text format |
+| `GET /actuator/metrics` | metric names and per-metric drill-down |
+
+The service publishes its own metrics under the `pcs.` prefix, alongside the standard JVM/HTTP ones:
+
+| Metric | Type | Meaning |
+|--------|------|---------|
+| `pcs.compression.duration` | timer | engine processing time, tagged `outcome`=compressed\|original |
+| `pcs.compression.requests` | counter | completed compressions, tagged `outcome` |
+| `pcs.compression.failures` | counter | failed compressions, tagged `reason` |
+| `pcs.compression.bytes.in` / `.out` / `.saved` | counter | cumulative byte totals |
+| `pcs.compression.saved.percent` | summary | distribution of per-request size reduction |
+| `pcs.images` | counter | images handled, tagged `action`=inspected\|downsampled\|recompressed\|unchanged |
+| `pcs.compression.slots.max` / `.inflight` | gauge | admission-gate capacity and current in-flight documents |
+
 ## Configuration
 
 All settings live in `src/main/resources/application.properties` and can be overridden at runtime as command-line arguments (`--key=value`) or environment variables (Spring Boot relaxed binding).
@@ -198,7 +222,7 @@ java -jar PdfCompressionService-*.jar --server.port=8080 --pdf.compression.targe
 
 ## Development
 
-- **Stack:** Java 25, Spring Boot 4.1.0, Apache PDFBox 3.0.8, jbig2-imageio (runtime).
+- **Stack:** Java 25, Spring Boot 4.1.0 (with Actuator + Micrometer/Prometheus), Apache PDFBox 3.0.8, jbig2-imageio (runtime).
 - **Tests:** `./mvnw verify` runs the full suite (engine behaviour & fidelity, web contract, regression, concurrency). The tests are the executable specification for compression behaviour.
 - **CI:** every push and pull request is built and tested on JDK 25 via [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 

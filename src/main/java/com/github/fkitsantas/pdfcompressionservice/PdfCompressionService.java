@@ -27,6 +27,7 @@ import com.github.fkitsantas.pdfcompressionservice.compression.CompressionResult
 import com.github.fkitsantas.pdfcompressionservice.compression.InvalidPdfException;
 import com.github.fkitsantas.pdfcompressionservice.compression.PdfCompressionEngine;
 import com.github.fkitsantas.pdfcompressionservice.compression.PdfCompressionException;
+import com.github.fkitsantas.pdfcompressionservice.metrics.CompressionMetrics;
 import com.github.fkitsantas.pdfcompressionservice.web.CompressionExceptionHandler;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -51,9 +52,11 @@ public class PdfCompressionService {
     private static final Logger logger = LoggerFactory.getLogger(PdfCompressionService.class);
 
     private final PdfCompressionEngine engine;
+    private final CompressionMetrics metrics;
 
-    public PdfCompressionService(PdfCompressionEngine engine) {
+    public PdfCompressionService(PdfCompressionEngine engine, CompressionMetrics metrics) {
         this.engine = engine;
+        this.metrics = metrics;
     }
 
     /**
@@ -96,8 +99,10 @@ public class PdfCompressionService {
                 result = engine.compress(uploadFile, file.getSize(), sink, originalFilename, requestId);
             } catch (InvalidPdfException | PdfCompressionException e) {
                 logger.warn("requestId={} action=compress-failed reason={}", requestId, e.getClass().getSimpleName());
+                metrics.recordFailure(e.getClass().getSimpleName());
                 throw e;
             }
+            metrics.recordSuccess(result);
             deleteQuietly(uploadFile); // input no longer needed
             uploadFile = null;
 
