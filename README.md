@@ -21,7 +21,7 @@ A small, self-contained web service that **shrinks PDF files by intelligently re
 
 - **Image-aware compression.** Each image is analysed for its *effective rendered DPI* (how many pixels actually land per inch on the page) and downsampled only when it is oversampled for its placement, never blindly.
 - **Fidelity preserving.** Text and vector content are never rasterised. Transparency (soft masks) is retained, colour spaces are preserved (grayscale stays gray, bitonal scans stay 1-bit), and image orientation/aspect ratio are kept exactly.
-- **Content-adaptive codecs.** Photographic images are recompressed as JPEG; line-art and low-colour images use lossless Flate to avoid ringing artefacts; bitonal scans stay CCITT.
+- **Content-adaptive codecs.** Photographic images are recompressed as JPEG; line-art and low-colour images use lossless Flate to avoid ringing artefacts; bitonal scans stay CCITT. JPEG2000 (JPXDecode) and JBIG2 images are decoded via bundled ImageIO plugins and recompressed instead of passing through.
 - **Safety rails.** A replacement image is only kept if it is genuinely smaller (configurable threshold); otherwise the original is retained. The service never enlarges an image and never mutates your uploaded bytes.
 - **Operational visibility.** Structured, content-free logs (sizes, counts, timing, correlation id) and a `/logs` page.
 
@@ -240,7 +240,7 @@ java -jar PdfCompressionService-*.jar --server.port=8080 --pdf.compression.targe
 
 ## Development
 
-- **Stack:** Java 25, Spring Boot 4.1.0 (with Actuator + Micrometer/Prometheus), Apache PDFBox 3.0.8, jbig2-imageio (runtime).
+- **Stack:** Java 25, Spring Boot 4.1.0 (with Actuator + Micrometer/Prometheus), Apache PDFBox 3.0.8, jbig2-imageio and jai-imageio JPEG2000 (runtime image codecs).
 - **Tests:** `./mvnw verify` runs the full suite (engine behaviour & fidelity, web contract, regression, concurrency). The tests are the executable specification for compression behaviour.
 - **CI:** every push and pull request is built and tested on JDK 25 via [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 

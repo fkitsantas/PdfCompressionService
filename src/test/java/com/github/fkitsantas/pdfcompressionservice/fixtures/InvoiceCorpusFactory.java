@@ -83,6 +83,36 @@ public final class InvoiceCorpusFactory {
     }
 
     // ------------------------------------------------------------------
+    // 1a. JPEG2000 (JPXDecode) image: exercises the JPX decode path
+    // ------------------------------------------------------------------
+
+    /**
+     * One A4 page carrying a single genuinely JPEG2000-encoded (JPXDecode)
+     * photographic image, drawn small so its effective DPI is well above the
+     * default target. This is a <b>real</b> JPX stream (encoded via the
+     * jai-imageio JPEG2000 writer), not a poison payload, so the engine can only
+     * optimize it if the JPEG2000 ImageIO plugin is on the classpath, decoding
+     * it and recompressing it to JPEG. Without that plugin the image would be
+     * undecodable and pass through untouched.
+     */
+    public static byte[] jpeg2000Image() throws IOException {
+        int width = 700;
+        int height = 500;
+        byte[] jp2 = encodeJpeg2000(syntheticPhotographicImage(width, height));
+        try (PDDocument doc = new PDDocument()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            doc.addPage(page);
+            PDImageXObject image = embedRawImageXObject(doc, jp2, COSName.getPDFName("JPXDecode"),
+                    COSName.DEVICERGB, width, height, 8);
+            // Small on-page size -> high effective DPI -> the engine downsamples and re-encodes.
+            try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+                cs.drawImage(image, 40, 40, 160, 114);
+            }
+            return save(doc);
+        }
+    }
+
+    // ------------------------------------------------------------------
     // 1b. Low effective-DPI image (already below target DPI): no-enlarge probe
     // ------------------------------------------------------------------
 
@@ -787,6 +817,15 @@ public final class InvoiceCorpusFactory {
 
     private static BufferedImage syntheticPhotographicImage(int width, int height) {
         return syntheticPhotographicImage(width, height, SEED);
+    }
+
+    /** Encodes an image to a JPEG2000 (JP2) byte stream via the jai-imageio JPEG2000 writer. */
+    private static byte[] encodeJpeg2000(BufferedImage image) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        if (!ImageIO.write(image, "jpeg2000", out)) {
+            throw new IllegalStateException("No JPEG2000 ImageIO writer is registered on the classpath");
+        }
+        return out.toByteArray();
     }
 
     /** High-entropy gradient + noise RGB image: genuinely "photographic", not flat-fillable. */

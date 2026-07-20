@@ -34,6 +34,7 @@
         -->
         <pdfbox.version>3.0.8</pdfbox.version>
         <jbig2.version>3.0.5</jbig2.version>
+        <jai-imageio-jpeg2000.version>1.4.0</jai-imageio-jpeg2000.version>
 
         <!--
             Build-stamping defaults, baked into META-INF/build-info.properties and
@@ -95,6 +96,20 @@
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>jbig2-imageio</artifactId>
             <version>${jbig2.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+            Runtime ImageIO plugin so PDFBox can decode JPEG2000 (JPXDecode) images,
+            which are otherwise undecodable and pass through unoptimised. Once decoded
+            they flow through the normal optimiser and are recompressed (usually as
+            JPEG). Pure Java; permissively licensed (BSD 3-clause + the JJ2000 research
+            license), GPL-compatible, mirroring the jbig2-imageio plugin above.
+        -->
+        <dependency>
+            <groupId>com.github.jai-imageio</groupId>
+            <artifactId>jai-imageio-jpeg2000</artifactId>
+            <version>${jai-imageio-jpeg2000.version}</version>
             <scope>runtime</scope>
         </dependency>
 
