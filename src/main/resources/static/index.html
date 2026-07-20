@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Compression Service</title>
+    <style>
+        :root {
+            --bg: #f4f6fb; --card: #ffffff; --fg: #1b2130; --muted: #5b6577;
+            --border: #dfe4ee; --accent: #3b6ef6; --accent-fg: #ffffff;
+            --drop: #f0f4ff; --drop-border: #b9caf7; --ok: #1f9d55; --err: #d23f4b;
+            --shadow: 0 8px 30px rgba(20, 33, 61, 0.08);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #10141c; --card: #1a2130; --fg: #e7ecf5; --muted: #93a0b5;
+                --border: #29344a; --accent: #5b86ff; --accent-fg: #0b1220;
+                --drop: #172038; --drop-border: #33477a; --ok: #35c46f; --err: #ff6b78;
+                --shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            }
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px;
+        }
+        .app { width: 100%; max-width: 640px; }
+        header { text-align: center; margin-bottom: 28px; }
+        header h1 { font-size: 1.6rem; margin: 0 0 6px; letter-spacing: -0.02em; }
+        header p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+        .card {
+            background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+            box-shadow: var(--shadow); padding: 24px;
+        }
+        .drop {
+            border: 2px dashed var(--drop-border); background: var(--drop); border-radius: 12px;
+            padding: 36px 20px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+        }
+        .drop.dragover { border-color: var(--accent); background: var(--card); }
+        .drop svg { width: 40px; height: 40px; stroke: var(--accent); margin-bottom: 10px; }
+        .drop strong { color: var(--accent); }
+        .drop .hint { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+        .file { display: none; }
+        .selected { margin-top: 16px; font-size: 0.92rem; display: none; align-items: center; gap: 8px; }
+        .selected .name { font-weight: 600; word-break: break-all; }
+        .selected .size { color: var(--muted); white-space: nowrap; }
+        details { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+        summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+        .field { display: flex; flex-direction: column; gap: 5px; }
+        .field label { font-size: 0.82rem; color: var(--muted); }
+        .field input[type=number] {
+            padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--bg); color: var(--fg); font-size: 0.95rem; width: 100%;
+        }
+        .check { flex-direction: row; align-items: center; gap: 9px; }
+        .check label { font-size: 0.9rem; color: var(--fg); }
+        button.go {
+            margin-top: 22px; width: 100%; padding: 13px; border: none; border-radius: 10px;
+            background: var(--accent); color: var(--accent-fg); font-size: 1rem; font-weight: 600;
+            cursor: pointer; transition: opacity .15s;
+        }
+        button.go:disabled { opacity: 0.5; cursor: not-allowed; }
+        .status { margin-top: 18px; font-size: 0.92rem; display: none; }
+        .status.show { display: block; }
+        .result {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; text-align: center;
+        }
+        .result .box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 8px; }
+        .result .box .v { font-size: 1.15rem; font-weight: 700; }
+        .result .box .v.saved { color: var(--ok); }
+        .result .box .k { font-size: 0.72rem; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .04em; }
+        .error { color: var(--err); font-weight: 600; }
+        .spinner {
+            width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent);
+            border-radius: 50%; display: inline-block; vertical-align: -3px; margin-right: 8px; animation: spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 22px; }
+        footer code { background: var(--card); border: 1px solid var(--border); padding: 2px 6px; border-radius: 6px; }
+        footer a { color: var(--accent); }
+    </style>
+</head>
+<body>
+<div class="app">
+    <header>
+        <h1>PDF Compression Service</h1>
+        <p>Shrink a PDF by re-encoding its images, while keeping text and layout intact.</p>
+    </header>
+
+    <div class="card">
+        <div class="drop" id="drop" role="button" tabindex="0" aria-label="Choose or drop a PDF">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <div><strong>Choose a PDF</strong> or drag it here</div>
+            <div class="hint">The file is compressed and downloaded back to you.</div>
+        </div>
+        <input type="file" id="file" class="file" accept="application/pdf,.pdf">
+        <div class="selected" id="selected">
+            <span class="name" id="fileName"></span>
+            <span class="size" id="fileSize"></span>
+        </div>
+
+        <details>
+            <summary>Advanced options</summary>
+            <div class="grid">
+                <div class="field">
+                    <label for="targetDpi">Target DPI (blank = default 150)</label>
+                    <input type="number" id="targetDpi" min="1" max="2400" placeholder="150">
+                </div>
+                <div class="field">
+                    <label for="jpegQuality">JPEG quality 0.0-1.0 (blank = 0.75)</label>
+                    <input type="number" id="jpegQuality" min="0" max="1" step="0.05" placeholder="0.75">
+                </div>
+                <div class="field">
+                    <label for="maxImageDimension">Max image edge px (0 = no cap)</label>
+                    <input type="number" id="maxImageDimension" min="0" placeholder="0">
+                </div>
+                <div class="field check">
+                    <input type="checkbox" id="deduplicateImages" checked>
+                    <label for="deduplicateImages">Deduplicate identical images</label>
+                </div>
+                <div class="field check">
+                    <input type="checkbox" id="stripMetadata">
+                    <label for="stripMetadata">Strip metadata (title, author, ...)</label>
+                </div>
+            </div>
+        </details>
+
+        <button class="go" id="go" disabled>Compress PDF</button>
+
+        <div class="status" id="status"></div>
+    </div>
+
+    <footer>
+        Prefer the terminal? <code>curl -F 'file=@in.pdf' /compressPdf --output out.pdf</code> works exactly as before.
+        &nbsp;·&nbsp; <a href="/logs">logs</a> · <a href="/version">version</a>
+    </footer>
+</div>
+
+<script>
+    (function () {
+        var drop = document.getElementById('drop');
+        var fileInput = document.getElementById('file');
+        var selected = document.getElementById('selected');
+        var fileName = document.getElementById('fileName');
+        var fileSize = document.getElementById('fileSize');
+        var go = document.getElementById('go');
+        var status = document.getElementById('status');
+        var chosen = null;
+
+        function humanSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            var units = ['KB', 'MB', 'GB'], i = -1, n = bytes;
+            do { n /= 1024; i++; } while (n >= 1024 && i < units.length - 1);
+            return n.toFixed(1) + ' ' + units[i];
+        }
+
+        function pick(file) {
+            if (!file) return;
+            chosen = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = humanSize(file.size);
+            selected.style.display = 'flex';
+            go.disabled = false;
+            status.className = 'status';
+            status.innerHTML = '';
+        }
+
+        drop.addEventListener('click', function () { fileInput.click(); });
+        drop.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+        });
+        fileInput.addEventListener('change', function () { pick(fileInput.files[0]); });
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('dragover'); });
+        });
+        ['dragleave', 'drop'].forEach(function (ev) {
+            drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('dragover'); });
+        });
+        drop.addEventListener('drop', function (e) {
+            if (e.dataTransfer.files && e.dataTransfer.files.length) pick(e.dataTransfer.files[0]);
+        });
+
+        function num(id) {
+            var v = document.getElementById(id).value.trim();
+            return v === '' ? null : v;
+        }
+
+        go.addEventListener('click', function () {
+            if (!chosen) return;
+            var form = new FormData();
+            form.append('file', chosen);
+            // Only send options the user actually set; blanks fall back to server defaults.
+            var dpi = num('targetDpi'); if (dpi !== null) form.append('targetDpi', dpi);
+            var q = num('jpegQuality'); if (q !== null) form.append('jpegQuality', q);
+            var cap = num('maxImageDimension'); if (cap !== null) form.append('maxImageDimension', cap);
+            form.append('deduplicateImages', document.getElementById('deduplicateImages').checked);
+            form.append('stripMetadata', document.getElementById('stripMetadata').checked);
+
+            go.disabled = true;
+            status.className = 'status show';
+            status.innerHTML = '<span class="spinner"></span>Compressing ' + chosen.name + ' ...';
+            var originalSize = chosen.size;
+
+            fetch('/compressPdf', { method: 'POST', body: form })
+                .then(function (resp) {
+                    if (!resp.ok) {
+                        return resp.json().then(function (err) {
+                            throw new Error((err && err.message ? err.message : 'Compression failed')
+                                + (err && err.requestId ? ' (request ' + err.requestId + ')' : ''));
+                        }, function () { throw new Error('Compression failed (HTTP ' + resp.status + ')'); });
+                    }
+                    return resp.blob();
+                })
+                .then(function (blob) {
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url; a.download = 'optimized.pdf';
+                    document.body.appendChild(a); a.click(); a.remove();
+                    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+
+                    var saved = originalSize > 0 ? Math.max(0, (1 - blob.size / originalSize) * 100) : 0;
+                    status.className = 'status show';
+                    status.innerHTML =
+                        '<div class="result">'
+                        + '<div class="box"><div class="v">' + humanSize(originalSize) + '</div><div class="k">Original</div></div>'
+                        + '<div class="box"><div class="v">' + humanSize(blob.size) + '</div><div class="k">Compressed</div></div>'
+                        + '<div class="box"><div class="v saved">' + saved.toFixed(1) + '%</div><div class="k">Saved</div></div>'
+                        + '</div>';
+                })
+                .catch(function (e) {
+                    status.className = 'status show';
+                    status.innerHTML = '<span class="error">' + (e.message || 'Compression failed') + '</span>';
+                })
+                .finally(function () { go.disabled = false; });
+        });
+    })();
+</script>
+</body>
+</html>

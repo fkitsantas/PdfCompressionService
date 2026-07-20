@@ -24,6 +24,7 @@ A small, self-contained web service that **shrinks PDF files by intelligently re
 - **Content-adaptive codecs.** Photographic images are recompressed as JPEG; line-art and low-colour images use lossless Flate to avoid ringing artefacts; bitonal scans stay CCITT. JPEG2000 (JPXDecode) and JBIG2 images are decoded via bundled ImageIO plugins and recompressed instead of passing through.
 - **Safety rails.** A replacement image is only kept if it is genuinely smaller (configurable threshold); otherwise the original is retained. The service never enlarges an image and never mutates your uploaded bytes.
 - **Operational visibility.** Structured, content-free logs (sizes, counts, timing, correlation id) and a `/logs` page.
+- **Browser UI.** A self-contained drag-drop page at `http://localhost:7777/` for compressing a file without the terminal; the `curl`/API flow is unchanged and remains the primary interface.
 
 ## Download & run (no Java required)
 
@@ -44,7 +45,7 @@ Every release ships **self-contained bundles that embed their own Java 25 runtim
    | Linux | `./PdfCompressionService/bin/PdfCompressionService` |
    | Windows | run `PdfCompressionService\PdfCompressionService.exe` |
 
-3. The service starts on **`http://localhost:7777`**. Compress a file from another terminal:
+3. The service starts on **`http://localhost:7777`**. Open that address in a browser for the drag-drop UI, or compress a file from another terminal:
 
    ```bash
    curl -X POST -F 'file=@/path/to/input.pdf' \
