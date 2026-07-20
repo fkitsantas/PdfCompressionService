@@ -9,8 +9,8 @@ A fidelity-preserving PDF compression microservice (Java 25, Spring Boot 4, Apac
 - **Table of Contents**
 - [What it does](#what-it-does)
 - [Download & run (no Java required)](#download--run-no-java-required)
-- [Run it as a background service (auto-start on boot)](#run-it-as-a-background-service-auto-start-on-boot)
 - [Alternatives: portable jar & build from source](#alternatives)
+- [Run it as a background service (auto-start on boot)](#run-it-as-a-background-service-auto-start-on-boot)
 - [HTTP API](#http-api)
 - [Configuration](#configuration)
 - [How compression works](#how-compression-works)
@@ -57,9 +57,58 @@ Every release ships **self-contained bundles that embed their own Java 25 runtim
 > xattr -dr com.apple.quarantine PdfCompressionService.app
 > ```
 
+## Alternatives
+
+### Portable jar (OS-agnostic, if you already have Java 25)
+
+The classic way to run it: one small, platform-independent jar. Every release includes `…-portable-jar.zip` alongside the OS bundles. This runs **exactly as before**. The only change from older releases is that it now requires Java 25 (rather than Java 8).
+
+**Step 1: Download the jar**
+
+Download `…-portable-jar.zip` from the [Releases](https://github.com/fkitsantas/PdfCompressionService/releases) page and unzip it into a folder. (It also ships an `INSTRUCTIONS.txt`.) Make sure Java 25+ is installed, check with `java -version`; get it from [adoptium.net](https://adoptium.net) if needed.
+
+**Step 2: Run the jar**
+
+Open a terminal, navigate to where you unzipped it, and run:
+
+```bash
+java -jar PdfCompressionService.jar
+```
+
+The service starts on `http://localhost:7777`.
+
+**Step 3: Post a PDF to the service for testing**
+
+From another terminal:
+
+```bash
+curl -X POST -F 'file=@/path/to/your/sample.pdf' \
+     http://localhost:7777/compressPdf --output compressed.pdf
+```
+
+Replace `/path/to/your/sample.pdf` with the actual path to your PDF file. The optimized PDF is written to `compressed.pdf`.
+
+### Build & run from source
+
+Requires JDK 25. The Maven Wrapper is included, so no separate Maven install is needed.
+
+```bash
+git clone https://github.com/fkitsantas/PdfCompressionService.git
+cd PdfCompressionService
+./mvnw verify          # compile + run the full test suite
+./mvnw spring-boot:run # start on http://localhost:7777
+```
+
+To produce a standalone bundle locally (needs a JDK 25 with `jlink`/`jpackage` on `PATH`):
+
+```bash
+./mvnw -B package
+packaging/build-bundle.sh 1.0.0   # output staged under dist/stage/
+```
+
 ## Run it as a background service (auto-start on boot)
 
-To keep the service running unattended, restart it if it crashes, and start it again automatically after a reboot, register it with your OS service manager. Each recipe below starts the service **at boot, before/without any user login**, and restarts it if it exits. The service listens on `http://localhost:7777`; append tuning flags (e.g. `--server.port=8080`) to the launch command if needed.
+Once you have picked a way to run it above (a self-contained bundle or the portable jar), register that with your OS service manager to keep it running unattended, restart it if it crashes, and start it again automatically after a reboot. Each recipe below starts the service **at boot, before/without any user login**, and restarts it if it exits. The service listens on `http://localhost:7777`; append tuning flags (e.g. `--server.port=8080`) to the launch command if needed.
 
 ### macOS (launchd)
 
@@ -156,55 +205,6 @@ For a **true Windows service** with automatic restart on crash, use [NSSM](https
 nssm install PdfCompressionService "C:\PdfCompressionService\PdfCompressionService.exe"
 nssm set PdfCompressionService Start SERVICE_AUTO_START
 nssm start PdfCompressionService
-```
-
-## Alternatives
-
-### Portable jar (OS-agnostic, if you already have Java 25)
-
-The classic way to run it: one small, platform-independent jar. Every release includes `…-portable-jar.zip` alongside the OS bundles. This runs **exactly as before**. The only change from older releases is that it now requires Java 25 (rather than Java 8).
-
-**Step 1: Download the jar**
-
-Download `…-portable-jar.zip` from the [Releases](https://github.com/fkitsantas/PdfCompressionService/releases) page and unzip it into a folder. (It also ships an `INSTRUCTIONS.txt`.) Make sure Java 25+ is installed, check with `java -version`; get it from [adoptium.net](https://adoptium.net) if needed.
-
-**Step 2: Run the jar**
-
-Open a terminal, navigate to where you unzipped it, and run:
-
-```bash
-java -jar PdfCompressionService.jar
-```
-
-The service starts on `http://localhost:7777`.
-
-**Step 3: Post a PDF to the service for testing**
-
-From another terminal:
-
-```bash
-curl -X POST -F 'file=@/path/to/your/sample.pdf' \
-     http://localhost:7777/compressPdf --output compressed.pdf
-```
-
-Replace `/path/to/your/sample.pdf` with the actual path to your PDF file. The optimized PDF is written to `compressed.pdf`.
-
-### Build & run from source
-
-Requires JDK 25. The Maven Wrapper is included, so no separate Maven install is needed.
-
-```bash
-git clone https://github.com/fkitsantas/PdfCompressionService.git
-cd PdfCompressionService
-./mvnw verify          # compile + run the full test suite
-./mvnw spring-boot:run # start on http://localhost:7777
-```
-
-To produce a standalone bundle locally (needs a JDK 25 with `jlink`/`jpackage` on `PATH`):
-
-```bash
-./mvnw -B package
-packaging/build-bundle.sh 1.0.0   # output staged under dist/stage/
 ```
 
 ## HTTP API
