@@ -82,6 +82,14 @@
         footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 22px; }
         footer code { background: var(--card); border: 1px solid var(--border); padding: 2px 6px; border-radius: 6px; }
         footer a { color: var(--accent); }
+        nav.menu { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 18px 0 2px; }
+        nav.menu a {
+            text-decoration: none; color: var(--fg); background: var(--card); border: 1px solid var(--border);
+            padding: 7px 15px; border-radius: 999px; font-size: 0.88rem; font-weight: 600;
+            transition: border-color .15s, color .15s;
+        }
+        nav.menu a:hover { border-color: var(--accent); color: var(--accent); }
+        nav.menu a.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
     </style>
 </head>
 <body>
@@ -89,6 +97,12 @@
     <header>
         <h1>PDF Compression Service</h1>
         <p>Shrink a PDF by re-encoding its images, while keeping text and layout intact.</p>
+        <nav class="menu">
+            <a href="/" class="active">Compress</a>
+            <a href="/logs">Live Logs</a>
+            <a href="/actuator/health" target="_blank" rel="noopener">Health</a>
+            <a href="/version" target="_blank" rel="noopener">Version</a>
+        </nav>
     </header>
 
     <div class="card">
@@ -140,7 +154,6 @@
 
     <footer>
         Prefer the terminal? <code>curl -F 'file=@in.pdf' /compressPdf --output out.pdf</code> works exactly as before.
-        &nbsp;·&nbsp; <a href="/logs">logs</a> · <a href="/version">version</a>
     </footer>
 </div>
 

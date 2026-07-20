@@ -70,6 +70,10 @@
                      border-radius: 8px; cursor: pointer; font: inherit; font-weight: 600; }
         button.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
         button.btn:hover { border-color: var(--accent); }
+        a.btn { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px;
+                padding: 6px 12px; background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+                border-radius: 8px; font-weight: 600; }
+        a.btn:hover { border-color: var(--accent); color: var(--accent); }
         :where(button, input, .chip):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
         /* ---- Log stream ---- */
@@ -111,6 +115,7 @@
 <body class="hide-TRACE">
 <header>
     <div class="brand">
+        <a class="btn" href="/" title="Back to the compressor">&larr; Compress</a>
         <h1>Live Logs</h1>
         <span class="status" aria-live="polite">
             <span id="dot" class="dot" aria-hidden="true"></span>
@@ -238,15 +243,42 @@
         logEl.querySelectorAll(".row").forEach(function (r) { r.remove(); });
     });
 
+    var es = null;
+    var lastId = "";
+
     function connect() {
-        var es = new EventSource("/logs/stream");
+        if (es) return;
+        var url = "/logs/stream" + (lastId ? ("?after=" + encodeURIComponent(lastId)) : "");
+        es = new EventSource(url);
         es.addEventListener("open", function () { dot.className = "dot live"; statusText.textContent = "live"; });
         es.addEventListener("log", function (e) {
+            if (e.lastEventId) lastId = e.lastEventId;
             try { append(JSON.parse(e.data)); } catch (err) { /* ignore malformed frame */ }
         });
         es.addEventListener("error", function () { dot.className = "dot down"; statusText.textContent = "reconnecting…"; });
     }
-    connect();
+
+    function disconnect() {
+        if (es) { es.close(); es = null; }
+    }
+
+    // A browser allows only ~6 concurrent connections per host over HTTP/1.1, and an
+    // open SSE stream holds one for as long as the tab lives. Several background /logs
+    // tabs would therefore exhaust that budget and stall every other request to the
+    // service (including new /logs tabs). So we release the connection whenever this
+    // tab is hidden and resume - from the last event id, with no duplicate replay -
+    // when it is shown again. Only the tab you are actually looking at holds a stream.
+    document.addEventListener("visibilitychange", function () {
+        if (document.hidden) {
+            disconnect();
+            dot.className = "dot"; statusText.textContent = "paused (tab hidden)";
+        } else {
+            connect();
+        }
+    });
+    window.addEventListener("pagehide", disconnect);
+
+    if (!document.hidden) connect();
 })();
 </script>
 </body>

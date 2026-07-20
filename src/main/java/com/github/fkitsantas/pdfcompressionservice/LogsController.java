@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -61,8 +62,14 @@ public class LogsController {
     @GetMapping(path = "/logs/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @ResponseBody
     public SseEmitter streamLogs(
-            @RequestHeader(name = "Last-Event-ID", required = false) String lastEventId) {
-        long afterId = parseLastEventId(lastEventId);
+            @RequestHeader(name = "Last-Event-ID", required = false) String lastEventId,
+            @RequestParam(name = "after", required = false) String after) {
+        // The browser's EventSource sets Last-Event-ID automatically on its own
+        // auto-reconnect; the `after` query param is how the page resumes after a
+        // deliberate close/reopen (e.g. when the tab was hidden), where no header
+        // is sent. Header wins when both are present.
+        String resumeFrom = (lastEventId != null && !lastEventId.isBlank()) ? lastEventId : after;
+        long afterId = parseLastEventId(resumeFrom);
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
         LiveLogStore store = LiveLogStore.getInstance();
         BlockingQueue<LogEntry> queue = new LinkedBlockingQueue<>(STREAM_QUEUE_CAPACITY);
