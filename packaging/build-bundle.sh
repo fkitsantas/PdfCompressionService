@@ -78,6 +78,24 @@ jlink \
   --output "$BUILD/runtime"
 
 # --- 2. self-contained app image via jpackage ------------------------------
+# Platform-specific application icon (Finder/Dock/taskbar), else jpackage stamps
+# the generic default Java icon. jpackage requires the native format per OS:
+# .icns (macOS), .ico (Windows), .png (Linux).
+ICON_DIR="$ROOT_DIR/packaging/icons"
+case "$(uname -s)" in
+  Darwin)                          ICON="$ICON_DIR/app.icns" ;;
+  MINGW*|MSYS*|CYGWIN*|Windows_NT) ICON="$ICON_DIR/app.ico" ;;
+  *)                               ICON="$ICON_DIR/app.png" ;;
+esac
+if [ -f "$ICON" ]; then
+  echo "==> App icon: $ICON"
+else
+  echo "==> WARNING: app icon $ICON not found; using the default Java icon" >&2
+  ICON=""
+fi
+
+# ${ICON:+...} keeps this safe under `set -u` and adds no args when ICON is unset;
+# both tokens stay separately quoted so a path with spaces is preserved.
 echo "==> jpackage: assembling native app image"
 jpackage \
   --type app-image \
@@ -87,6 +105,7 @@ jpackage \
   --main-class org.springframework.boot.loader.launch.JarLauncher \
   --runtime-image "$BUILD/runtime" \
   --app-version "$BUNDLE_VERSION" \
+  ${ICON:+--icon} ${ICON:+"$ICON"} \
   --java-options "-Xss4m" \
   --dest "$BUILD/image"
 
