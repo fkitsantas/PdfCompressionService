@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
+import com.github.fkitsantas.pdfcompressionservice.compression.InvalidCompressionOptionException;
 import com.github.fkitsantas.pdfcompressionservice.compression.InvalidPdfException;
 import com.github.fkitsantas.pdfcompressionservice.compression.PdfCompressionException;
 
@@ -42,6 +43,14 @@ public class CompressionExceptionHandler {
         log.warn("requestId={} action=compress-rejected reason=invalid-pdf", requestId, ex);
         return build(HttpStatus.UNPROCESSABLE_ENTITY,
                 "The uploaded file is not a valid PDF document.", requestId);
+    }
+
+    @ExceptionHandler(InvalidCompressionOptionException.class)
+    public ResponseEntity<ApiError> handleInvalidOption(InvalidCompressionOptionException ex,
+                                                        HttpServletRequest request) {
+        String requestId = requestId(request);
+        log.warn("requestId={} action=compress-rejected reason=invalid-option detail={}", requestId, ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), requestId);
     }
 
     @ExceptionHandler(MissingServletRequestPartException.class)

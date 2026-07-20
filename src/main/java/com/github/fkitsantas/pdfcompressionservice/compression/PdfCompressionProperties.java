@@ -48,6 +48,32 @@ public class PdfCompressionProperties {
     private boolean deduplicateImages = true;
     private boolean stripMetadata = false;
 
+    /**
+     * Returns an independent copy carrying the same values, used to derive a
+     * per-request "effective" configuration by layering {@link CompressionOptions}
+     * overrides on top (see {@link PdfCompressionEngine}) without mutating this
+     * shared singleton. All fields are already valid here, so they are copied
+     * directly rather than re-validated through the setters.
+     */
+    public PdfCompressionProperties copy() {
+        PdfCompressionProperties c = new PdfCompressionProperties();
+        c.targetDpi = this.targetDpi;
+        c.maxImageDimension = this.maxImageDimension;
+        c.jpegQuality = this.jpegQuality;
+        c.minDimension = this.minDimension;
+        c.minByteSize = this.minByteSize;
+        c.minReductionRatio = this.minReductionRatio;
+        c.largerResultPolicy = this.largerResultPolicy;
+        c.streamCache = this.streamCache;
+        c.recompressCmyk = this.recompressCmyk;
+        c.parallelism = this.parallelism;
+        c.parallelImageThreshold = this.parallelImageThreshold;
+        c.maxConcurrentCompressions = this.maxConcurrentCompressions;
+        c.deduplicateImages = this.deduplicateImages;
+        c.stripMetadata = this.stripMetadata;
+        return c;
+    }
+
     public int getTargetDpi() {
         return targetDpi;
     }

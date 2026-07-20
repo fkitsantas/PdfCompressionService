@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.github.fkitsantas.pdfcompressionservice.compression.CompressionOptions;
 import com.github.fkitsantas.pdfcompressionservice.compression.CompressionResult;
 import com.github.fkitsantas.pdfcompressionservice.compression.InvalidPdfException;
 import com.github.fkitsantas.pdfcompressionservice.compression.PdfCompressionEngine;
@@ -63,15 +64,31 @@ public class PdfCompressionService {
      * Compresses the uploaded PDF file and returns the optimized PDF as an
      * attachment named {@code optimized.pdf}.
      *
-     * @param file    the PDF file to be compressed (required multipart part named "file")
-     * @param request current HTTP request, used only to publish the generated request id
-     *                for {@link CompressionExceptionHandler} to pick up on failure
+     * <p>All the compression tunables are optional query/form parameters; when
+     * omitted the service-configured defaults apply, so the plain
+     * {@code curl -F 'file=@in.pdf'} call is unchanged. An out-of-range value is
+     * rejected as {@code 400 Bad Request}.
+     *
+     * @param file              the PDF file to be compressed (required multipart part named "file")
+     * @param targetDpi         optional override for the target downsample resolution
+     * @param jpegQuality       optional override for JPEG quality (0.0-1.0)
+     * @param maxImageDimension optional override for the output longest-edge cap (0 = no cap)
+     * @param stripMetadata     optional override for stripping XMP/Info metadata
+     * @param deduplicateImages optional override for merging byte-identical images
+     * @param request           current HTTP request, used only to publish the generated request id
+     *                          for {@link CompressionExceptionHandler} to pick up on failure
      * @return the compressed PDF file as an {@link InputStreamResource}
      * @throws IOException if the multipart file's bytes cannot be read
      */
     @PostMapping("/compressPdf")
-    public ResponseEntity<InputStreamResource> compressPdf(@RequestParam("file") MultipartFile file,
-                                                             HttpServletRequest request) throws IOException {
+    public ResponseEntity<InputStreamResource> compressPdf(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "targetDpi", required = false) Integer targetDpi,
+            @RequestParam(value = "jpegQuality", required = false) Float jpegQuality,
+            @RequestParam(value = "maxImageDimension", required = false) Integer maxImageDimension,
+            @RequestParam(value = "stripMetadata", required = false) Boolean stripMetadata,
+            @RequestParam(value = "deduplicateImages", required = false) Boolean deduplicateImages,
+            HttpServletRequest request) throws IOException {
         String requestId = UUID.randomUUID().toString();
         // Correlation id for every log line produced while handling this request
         // (console + live /logs view); removed in the finally block below.
@@ -81,9 +98,12 @@ public class PdfCompressionService {
         try {
             request.setAttribute(CompressionExceptionHandler.REQUEST_ID_ATTRIBUTE, requestId);
 
+            CompressionOptions options = new CompressionOptions(
+                    targetDpi, jpegQuality, maxImageDimension, stripMetadata, deduplicateImages);
+
             String originalFilename = file.getOriginalFilename();
-            logger.info("requestId={} action=compress-start filename={} sizeBytes={}",
-                    requestId, originalFilename, file.getSize());
+            logger.info("requestId={} action=compress-start filename={} sizeBytes={} options={}",
+                    requestId, originalFilename, file.getSize(), options);
             logger.debug("requestId={} action=upload-received contentType={} multipartField={}",
                     requestId, file.getContentType(), file.getName());
 
@@ -96,7 +116,7 @@ public class PdfCompressionService {
 
             CompressionResult result;
             try (OutputStream sink = new BufferedOutputStream(Files.newOutputStream(outputFile))) {
-                result = engine.compress(uploadFile, file.getSize(), sink, originalFilename, requestId);
+                result = engine.compress(uploadFile, file.getSize(), sink, originalFilename, requestId, options);
             } catch (InvalidPdfException | PdfCompressionException e) {
                 logger.warn("requestId={} action=compress-failed reason={}", requestId, e.getClass().getSimpleName());
                 metrics.recordFailure(e.getClass().getSimpleName());

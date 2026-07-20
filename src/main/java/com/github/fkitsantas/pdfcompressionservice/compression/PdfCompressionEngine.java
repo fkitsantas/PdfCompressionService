@@ -232,17 +232,30 @@ public class PdfCompressionEngine {
      */
     public CompressionResult compress(byte[] pdfBytes, String originalFilename, String requestId)
             throws InvalidPdfException, PdfCompressionException {
+        return compress(pdfBytes, originalFilename, requestId, CompressionOptions.NONE);
+    }
+
+    /**
+     * As {@link #compress(byte[], String, String)}, but with per-request
+     * {@link CompressionOptions} layered over the configured defaults.
+     *
+     * @throws InvalidCompressionOptionException if an override is out of range
+     */
+    public CompressionResult compress(byte[] pdfBytes, String originalFilename, String requestId,
+                                      CompressionOptions options)
+            throws InvalidPdfException, PdfCompressionException {
         if (pdfBytes == null) {
             throw new InvalidPdfException("PDF bytes must not be null");
         }
+        PdfCompressionProperties effective = effectiveProperties(options);
         long startNanos = System.nanoTime();
         acquirePermit(requestId);
         try (PDDocument doc = loadDocument(pdfBytes)) {
-            ProcessedDocument processed = processDocument(doc, requestId);
+            ProcessedDocument processed = processDocument(doc, effective, requestId);
             byte[] candidateBytes = save(doc);
-            boolean useOriginal = useOriginal(candidateBytes.length, pdfBytes.length);
+            boolean useOriginal = useOriginal(effective, candidateBytes.length, pdfBytes.length);
             byte[] finalBytes = useOriginal ? pdfBytes : candidateBytes;
-            return buildResult(requestId, originalFilename, pdfBytes.length, finalBytes.length,
+            return buildResult(effective, requestId, originalFilename, pdfBytes.length, finalBytes.length,
                     processed, useOriginal, startNanos, finalBytes);
         } catch (InvalidPdfException | PdfCompressionException e) {
             throw e;
@@ -270,19 +283,32 @@ public class PdfCompressionEngine {
     public CompressionResult compress(Path sourceFile, long sourceLength, OutputStream sink,
                                       String originalFilename, String requestId)
             throws InvalidPdfException, PdfCompressionException {
+        return compress(sourceFile, sourceLength, sink, originalFilename, requestId, CompressionOptions.NONE);
+    }
+
+    /**
+     * As {@link #compress(Path, long, OutputStream, String, String)}, but with
+     * per-request {@link CompressionOptions} layered over the configured defaults.
+     *
+     * @throws InvalidCompressionOptionException if an override is out of range
+     */
+    public CompressionResult compress(Path sourceFile, long sourceLength, OutputStream sink,
+                                      String originalFilename, String requestId, CompressionOptions options)
+            throws InvalidPdfException, PdfCompressionException {
+        PdfCompressionProperties effective = effectiveProperties(options);
         long startNanos = System.nanoTime();
         acquirePermit(requestId);
         Path candidateFile = null;
         try (PDDocument doc = loadDocument(sourceFile)) {
-            ProcessedDocument processed = processDocument(doc, requestId);
+            ProcessedDocument processed = processDocument(doc, effective, requestId);
             candidateFile = Files.createTempFile("pcs-candidate-", ".pdf");
             saveToFile(doc, candidateFile);
             long candidateLength = Files.size(candidateFile);
-            boolean useOriginal = useOriginal(candidateLength, sourceLength);
+            boolean useOriginal = useOriginal(effective, candidateLength, sourceLength);
             Path chosen = useOriginal ? sourceFile : candidateFile;
             long compressedLength = Files.size(chosen);
             Files.copy(chosen, sink);
-            return buildResult(requestId, originalFilename, sourceLength, compressedLength,
+            return buildResult(effective, requestId, originalFilename, sourceLength, compressedLength,
                     processed, useOriginal, startNanos, EMPTY_BYTES);
         } catch (InvalidPdfException | PdfCompressionException e) {
             throw e;
@@ -305,12 +331,30 @@ public class PdfCompressionEngine {
     }
 
     /**
+     * Resolves the configuration to use for one request: the shared configured
+     * properties when there are no overrides, otherwise a private copy with the
+     * request's {@link CompressionOptions} layered on top. Service-level concerns
+     * (thread pools, admission gate, stream cache) are copied unchanged, so a
+     * per-request override can never affect the whole service's safety limits.
+     */
+    private PdfCompressionProperties effectiveProperties(CompressionOptions options) {
+        if (options == null || options.isEmpty()) {
+            return properties;
+        }
+        PdfCompressionProperties effective = properties.copy();
+        options.applyTo(effective);
+        return effective;
+    }
+
+    /**
      * The shared pipeline both entry points run against a loaded document: usage
      * analysis, deduplicated image discovery (isolated per page), per-image
      * optimization, and optional metadata stripping. Leaves the document ready
-     * to be saved.
+     * to be saved. Runs against {@code effective}, the request's resolved
+     * configuration.
      */
-    private ProcessedDocument processDocument(PDDocument doc, String requestId) throws IOException {
+    private ProcessedDocument processDocument(PDDocument doc, PdfCompressionProperties effective, String requestId)
+            throws IOException {
         int pageCount = doc.getNumberOfPages();
         Map<COSBase, float[]> usage = analyzeImageUsage(doc, requestId);
 
@@ -331,9 +375,10 @@ public class PdfCompressionEngine {
             discoveryPageIndex++;
         }
 
-        ImageOptimizer optimizer = new ImageOptimizer(properties);
-        ImageProcessingStats stats = processImages(doc, uniqueImages, referencesByImage, usage, optimizer, requestId);
-        if (properties.isStripMetadata()) {
+        ImageOptimizer optimizer = new ImageOptimizer(effective);
+        ImageProcessingStats stats = processImages(doc, effective, uniqueImages, referencesByImage,
+                usage, optimizer, requestId);
+        if (effective.isStripMetadata()) {
             stripMetadata(doc);
         }
         return new ProcessedDocument(pageCount, stats);
@@ -350,21 +395,22 @@ public class PdfCompressionEngine {
         }
     }
 
-    private boolean useOriginal(long candidateLength, long originalLength) {
-        if (properties.getLargerResultPolicy() == LargerResultPolicy.KEEP_ORIGINAL) {
-            return candidateLength > originalLength * (1.0 - properties.getMinReductionRatio());
+    private boolean useOriginal(PdfCompressionProperties effective, long candidateLength, long originalLength) {
+        if (effective.getLargerResultPolicy() == LargerResultPolicy.KEEP_ORIGINAL) {
+            return candidateLength > originalLength * (1.0 - effective.getMinReductionRatio());
         }
         return candidateLength >= originalLength;
     }
 
-    private CompressionResult buildResult(String requestId, String originalFilename, long originalLength,
-                                          long compressedLength, ProcessedDocument processed, boolean useOriginal,
+    private CompressionResult buildResult(PdfCompressionProperties effective, String requestId,
+                                          String originalFilename, long originalLength, long compressedLength,
+                                          ProcessedDocument processed, boolean useOriginal,
                                           long startNanos, byte[] bytes) {
         ImageProcessingStats stats = processed.stats();
         long savedBytes = originalLength - compressedLength;
         double savedPercent = originalLength == 0 ? 0.0 : (100.0 * savedBytes) / originalLength;
         long durationMillis = (System.nanoTime() - startNanos) / 1_000_000L;
-        String profile = "dpi=" + properties.getTargetDpi() + ",q=" + properties.getJpegQuality();
+        String profile = "dpi=" + effective.getTargetDpi() + ",q=" + effective.getJpegQuality();
         log.debug("Compressed request {} ({}): {} -> {} bytes ({} pages, inspected={}, downsampled={}, "
                         + "recompressed={}, unchanged={}, returnedOriginal={})",
                 requestId, originalFilename, originalLength, compressedLength, processed.pageCount(),
@@ -414,6 +460,7 @@ public class PdfCompressionEngine {
      * identical between a serial and a parallel run of the same input.
      */
     private ImageProcessingStats processImages(PDDocument doc,
+                                                PdfCompressionProperties effective,
                                                 Map<COSBase, PDImageXObject> uniqueImages,
                                                 Map<COSBase, List<ImageRef>> referencesByImage,
                                                 Map<COSBase, float[]> usage,
@@ -515,7 +562,7 @@ public class PdfCompressionEngine {
             }
         }
 
-        if (properties.isDeduplicateImages()) {
+        if (effective.isDeduplicateImages()) {
             deduplicateByContent(entries, outcomes, referencesByImage, requestId);
         }
         return new ImageProcessingStats(inspected, downsampled, recompressed, unchanged);

@@ -119,6 +119,23 @@ curl -X POST -F 'file=@invoice.pdf' \
      http://localhost:7777/compressPdf --output optimized.pdf
 ```
 
+**Optional per-request overrides.** Any of the tunables below may be supplied as query or form parameters to override the configured default for that one request; omit them all and the defaults apply, so the plain call above is unchanged. An out-of-range value is rejected as `400 Bad Request` (JSON error body).
+
+| Parameter | Overrides |
+|-----------|-----------|
+| `targetDpi` | `pdf.compression.target-dpi` |
+| `jpegQuality` | `pdf.compression.jpeg-quality` (0.0-1.0) |
+| `maxImageDimension` | `pdf.compression.max-image-dimension` (0 = no cap) |
+| `stripMetadata` | `pdf.compression.strip-metadata` |
+| `deduplicateImages` | `pdf.compression.deduplicate-images` |
+
+```bash
+# More aggressive downsampling and metadata stripping, just for this request:
+curl -X POST -F 'file=@invoice.pdf' \
+     -F 'targetDpi=96' -F 'stripMetadata=true' \
+     http://localhost:7777/compressPdf --output optimized.pdf
+```
+
 **Error responses** are a stable JSON body, never a stack trace, carrying a `requestId` you can cross-reference in the server logs:
 
 ```json
@@ -133,7 +150,7 @@ curl -X POST -F 'file=@invoice.pdf' \
 
 | Status | When |
 |--------|------|
-| `400 Bad Request` | the `file` part is missing from the request |
+| `400 Bad Request` | the `file` part is missing, or a per-request override is out of range |
 | `422 Unprocessable Entity` | the upload is not a valid PDF |
 | `500 Internal Server Error` | an unexpected failure during compression |
 
