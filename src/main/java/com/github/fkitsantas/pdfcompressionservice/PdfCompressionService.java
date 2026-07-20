@@ -1,7 +1,13 @@
 package com.github.fkitsantas.pdfcompressionservice;
 
-import java.io.ByteArrayInputStream;
+import java.io.BufferedOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -30,6 +36,11 @@ import jakarta.servlet.http.HttpServletRequest;
  * document-fidelity concerns live in {@link PdfCompressionEngine}; this
  * class is only responsible for the HTTP contract (multipart upload,
  * response headers, operational logging).
+ *
+ * <p>The upload is streamed to a temp file and the result is streamed back from
+ * a temp file, so neither the whole input nor the whole output is ever held in
+ * the heap - a burst of large uploads cannot exhaust memory. Both temp files are
+ * always cleaned up (the output file when the response finishes writing).
  *
  * <p>Only operational metadata is logged here (request id, sizes, counts,
  * timing, success/failure), never document contents, text or bytes.
@@ -62,6 +73,8 @@ public class PdfCompressionService {
         // Correlation id for every log line produced while handling this request
         // (console + live /logs view); removed in the finally block below.
         MDC.put("requestId", requestId);
+        Path uploadFile = null;
+        Path outputFile = null;
         try {
             request.setAttribute(CompressionExceptionHandler.REQUEST_ID_ATTRIBUTE, requestId);
 
@@ -71,14 +84,22 @@ public class PdfCompressionService {
             logger.debug("requestId={} action=upload-received contentType={} multipartField={}",
                     requestId, file.getContentType(), file.getName());
 
+            uploadFile = Files.createTempFile("pcs-in-", ".pdf");
+            outputFile = Files.createTempFile("pcs-out-", ".pdf");
+            // Stream the upload to disk rather than buffering the whole file in the heap.
+            try (InputStream in = file.getInputStream()) {
+                Files.copy(in, uploadFile, StandardCopyOption.REPLACE_EXISTING);
+            }
+
             CompressionResult result;
-            try {
-                byte[] bytes = file.getBytes();
-                result = engine.compress(bytes, originalFilename, requestId);
+            try (OutputStream sink = new BufferedOutputStream(Files.newOutputStream(outputFile))) {
+                result = engine.compress(uploadFile, file.getSize(), sink, originalFilename, requestId);
             } catch (InvalidPdfException | PdfCompressionException e) {
                 logger.warn("requestId={} action=compress-failed reason={}", requestId, e.getClass().getSimpleName());
                 throw e;
             }
+            deleteQuietly(uploadFile); // input no longer needed
+            uploadFile = null;
 
             logger.info("requestId={} action=compress-complete originalBytes={} compressedBytes={} savedBytes={} "
                             + "savedPercent={} pageCount={} imagesInspected={} imagesDownsampled={} "
@@ -88,19 +109,47 @@ public class PdfCompressionService {
                     result.getImagesDownsampled(), result.getImagesRecompressed(), result.getImagesUnchanged(),
                     result.getProfile(), result.getDurationMillis(), result.isReturnedOriginal());
 
-            byte[] compressedPdf = result.getCompressedPdf();
-            InputStreamResource resource = new InputStreamResource(new ByteArrayInputStream(compressedPdf));
+            long length = result.getCompressedBytes();
+            InputStreamResource resource = new InputStreamResource(deletingInputStream(outputFile));
+            outputFile = null; // ownership handed to the response stream, which deletes it on close
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentDisposition(ContentDisposition.attachment().filename("optimized.pdf").build());
-
             return ResponseEntity.ok()
                     .headers(headers)
                     .contentType(MediaType.APPLICATION_PDF)
-                    .contentLength(compressedPdf.length)
+                    .contentLength(length)
                     .body(resource);
         } finally {
+            // On any failure (or if ownership was not handed off) remove the temp files.
+            deleteQuietly(uploadFile);
+            deleteQuietly(outputFile);
             MDC.remove("requestId");
+        }
+    }
+
+    /** An input stream over {@code file} that deletes the file once it is closed (after the response is written). */
+    private static InputStream deletingInputStream(Path file) throws IOException {
+        return new FilterInputStream(Files.newInputStream(file)) {
+            @Override
+            public void close() throws IOException {
+                try {
+                    super.close();
+                } finally {
+                    deleteQuietly(file);
+                }
+            }
+        };
+    }
+
+    private static void deleteQuietly(Path file) {
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException ignored) {
+            // best-effort temp cleanup
         }
     }
 }

@@ -1,9 +1,13 @@
 package com.github.fkitsantas.pdfcompressionservice.compression;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -92,6 +96,9 @@ public class PdfCompressionEngine {
      * tests in the {@code concurrency} test package lose their signal.
      */
     public static final String IMAGE_THREAD_NAME_PREFIX = "pdf-img-";
+
+    /** Placeholder for {@link CompressionResult#getCompressedPdf()} on the streaming path (bytes go to the sink). */
+    private static final byte[] EMPTY_BYTES = new byte[0];
 
     /**
      * Shared across every {@code ThreadPoolExecutor} this class creates (i.e.
@@ -212,99 +219,142 @@ public class PdfCompressionEngine {
             throw new InvalidPdfException("PDF bytes must not be null");
         }
         long startNanos = System.nanoTime();
-
-        // Admission gate (see #compressionPermits): bounds how many full documents are resident at once.
-        boolean permitAcquired = false;
-        try {
-            compressionPermits.acquire();
-            permitAcquired = true;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new PdfCompressionException("Interrupted while awaiting a compression permit for request " + requestId, e);
-        }
-
+        acquirePermit(requestId);
         try (PDDocument doc = loadDocument(pdfBytes)) {
-            int pageCount = doc.getNumberOfPages();
-
-            Map<COSBase, float[]> usage = analyzeImageUsage(doc, requestId);
-
-            Map<COSBase, PDImageXObject> uniqueImages = new LinkedHashMap<>();
-            Map<COSBase, List<ImageRef>> referencesByImage = new IdentityHashMap<>();
-            Set<COSBase> visitedResources = Collections.newSetFromMap(new IdentityHashMap<>());
-            int discoveryPageIndex = 0;
-            for (PDPage page : doc.getPages()) {
-                // Isolate per page: a broken page resources dict or annotation must not
-                // abort discovery for the rest of the document.
-                try {
-                    collectImages(page.getResources(), uniqueImages, referencesByImage, visitedResources);
-                    collectAnnotationImages(page, uniqueImages, referencesByImage, visitedResources);
-                } catch (Exception e) {
-                    log.warn("Image discovery failed for request {} page #{}, skipping its images "
-                            + "(exception: {})", requestId, discoveryPageIndex, e.getClass().getName());
-                }
-                discoveryPageIndex++;
-            }
-
-            ImageOptimizer optimizer = new ImageOptimizer(properties);
-            ImageProcessingStats stats = processImages(doc, uniqueImages, referencesByImage, usage, optimizer,
-                    requestId);
-            int inspected = stats.inspected();
-            int downsampled = stats.downsampled();
-            int recompressed = stats.recompressed();
-            int unchanged = stats.unchanged();
-
-            if (properties.isStripMetadata()) {
-                stripMetadata(doc);
-            }
+            ProcessedDocument processed = processDocument(doc, requestId);
             byte[] candidateBytes = save(doc);
-
-            long originalLen = pdfBytes.length;
-            long candidateLen = candidateBytes.length;
-            boolean useOriginal;
-            if (properties.getLargerResultPolicy() == LargerResultPolicy.KEEP_ORIGINAL) {
-                boolean meetsRatio = candidateLen <= originalLen * (1.0 - properties.getMinReductionRatio());
-                useOriginal = !meetsRatio;
-            } else {
-                useOriginal = candidateLen >= originalLen;
-            }
-
+            boolean useOriginal = useOriginal(candidateBytes.length, pdfBytes.length);
             byte[] finalBytes = useOriginal ? pdfBytes : candidateBytes;
-            long compressedLen = finalBytes.length;
-            long savedBytes = originalLen - compressedLen;
-            double savedPercent = originalLen == 0 ? 0.0 : (100.0 * savedBytes) / originalLen;
-            long durationMillis = (System.nanoTime() - startNanos) / 1_000_000L;
-            String profile = "dpi=" + properties.getTargetDpi() + ",q=" + properties.getJpegQuality();
-
-            CompressionResult result = new CompressionResult(
-                    requestId,
-                    originalLen,
-                    compressedLen,
-                    savedBytes,
-                    savedPercent,
-                    pageCount,
-                    inspected,
-                    downsampled,
-                    recompressed,
-                    unchanged,
-                    profile,
-                    durationMillis,
-                    useOriginal,
-                    finalBytes);
-
-            log.debug("Compressed request {} ({}): {} -> {} bytes ({} pages, inspected={}, downsampled={}, "
-                            + "recompressed={}, unchanged={}, returnedOriginal={})",
-                    requestId, originalFilename, originalLen, compressedLen, pageCount, inspected, downsampled,
-                    recompressed, unchanged, useOriginal);
-            return result;
+            return buildResult(requestId, originalFilename, pdfBytes.length, finalBytes.length,
+                    processed, useOriginal, startNanos, finalBytes);
         } catch (InvalidPdfException | PdfCompressionException e) {
             throw e;
         } catch (IOException e) {
             throw new PdfCompressionException("Failed to process PDF for request " + requestId, e);
         } finally {
-            if (permitAcquired) {
-                compressionPermits.release();
-            }
+            compressionPermits.release();
         }
+    }
+
+    /**
+     * Streaming variant that never holds the whole input or output in the heap:
+     * it reads the source from {@code sourceFile}, writes the compressed result
+     * to {@code sink}, and returns only the statistics (the returned
+     * {@link CompressionResult#getCompressedPdf()} is empty - the bytes went to
+     * {@code sink}). This is what the HTTP layer uses so a burst of large uploads
+     * cannot exhaust memory; peak heap per request is bounded to the document
+     * structures plus one image batch, not the file size.
+     *
+     * @param sourceFile   temp file holding the uploaded PDF
+     * @param sourceLength byte length of the source (for the reduction decision)
+     * @param sink         where the chosen output (compressed, or the original if
+     *                     compression did not pay off) is written
+     */
+    public CompressionResult compress(Path sourceFile, long sourceLength, OutputStream sink,
+                                      String originalFilename, String requestId)
+            throws InvalidPdfException, PdfCompressionException {
+        long startNanos = System.nanoTime();
+        acquirePermit(requestId);
+        Path candidateFile = null;
+        try (PDDocument doc = loadDocument(sourceFile)) {
+            ProcessedDocument processed = processDocument(doc, requestId);
+            candidateFile = Files.createTempFile("pcs-candidate-", ".pdf");
+            saveToFile(doc, candidateFile);
+            long candidateLength = Files.size(candidateFile);
+            boolean useOriginal = useOriginal(candidateLength, sourceLength);
+            Path chosen = useOriginal ? sourceFile : candidateFile;
+            long compressedLength = Files.size(chosen);
+            Files.copy(chosen, sink);
+            return buildResult(requestId, originalFilename, sourceLength, compressedLength,
+                    processed, useOriginal, startNanos, EMPTY_BYTES);
+        } catch (InvalidPdfException | PdfCompressionException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new PdfCompressionException("Failed to process PDF for request " + requestId, e);
+        } finally {
+            if (candidateFile != null) {
+                try {
+                    Files.deleteIfExists(candidateFile);
+                } catch (IOException ignored) {
+                    // best-effort temp cleanup
+                }
+            }
+            compressionPermits.release();
+        }
+    }
+
+    /** Immutable summary of the shared processing pipeline. */
+    private record ProcessedDocument(int pageCount, ImageProcessingStats stats) {
+    }
+
+    /**
+     * The shared pipeline both entry points run against a loaded document: usage
+     * analysis, deduplicated image discovery (isolated per page), per-image
+     * optimization, and optional metadata stripping. Leaves the document ready
+     * to be saved.
+     */
+    private ProcessedDocument processDocument(PDDocument doc, String requestId) throws IOException {
+        int pageCount = doc.getNumberOfPages();
+        Map<COSBase, float[]> usage = analyzeImageUsage(doc, requestId);
+
+        Map<COSBase, PDImageXObject> uniqueImages = new LinkedHashMap<>();
+        Map<COSBase, List<ImageRef>> referencesByImage = new IdentityHashMap<>();
+        Set<COSBase> visitedResources = Collections.newSetFromMap(new IdentityHashMap<>());
+        int discoveryPageIndex = 0;
+        for (PDPage page : doc.getPages()) {
+            // Isolate per page: a broken page resources dict or annotation must not
+            // abort discovery for the rest of the document.
+            try {
+                collectImages(page.getResources(), uniqueImages, referencesByImage, visitedResources);
+                collectAnnotationImages(page, uniqueImages, referencesByImage, visitedResources);
+            } catch (Exception e) {
+                log.warn("Image discovery failed for request {} page #{}, skipping its images "
+                        + "(exception: {})", requestId, discoveryPageIndex, e.getClass().getName());
+            }
+            discoveryPageIndex++;
+        }
+
+        ImageOptimizer optimizer = new ImageOptimizer(properties);
+        ImageProcessingStats stats = processImages(doc, uniqueImages, referencesByImage, usage, optimizer, requestId);
+        if (properties.isStripMetadata()) {
+            stripMetadata(doc);
+        }
+        return new ProcessedDocument(pageCount, stats);
+    }
+
+    /** Admission gate: bounds how many full documents are resident at once (see {@link #compressionPermits}). */
+    private void acquirePermit(String requestId) throws PdfCompressionException {
+        try {
+            compressionPermits.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PdfCompressionException(
+                    "Interrupted while awaiting a compression permit for request " + requestId, e);
+        }
+    }
+
+    private boolean useOriginal(long candidateLength, long originalLength) {
+        if (properties.getLargerResultPolicy() == LargerResultPolicy.KEEP_ORIGINAL) {
+            return candidateLength > originalLength * (1.0 - properties.getMinReductionRatio());
+        }
+        return candidateLength >= originalLength;
+    }
+
+    private CompressionResult buildResult(String requestId, String originalFilename, long originalLength,
+                                          long compressedLength, ProcessedDocument processed, boolean useOriginal,
+                                          long startNanos, byte[] bytes) {
+        ImageProcessingStats stats = processed.stats();
+        long savedBytes = originalLength - compressedLength;
+        double savedPercent = originalLength == 0 ? 0.0 : (100.0 * savedBytes) / originalLength;
+        long durationMillis = (System.nanoTime() - startNanos) / 1_000_000L;
+        String profile = "dpi=" + properties.getTargetDpi() + ",q=" + properties.getJpegQuality();
+        log.debug("Compressed request {} ({}): {} -> {} bytes ({} pages, inspected={}, downsampled={}, "
+                        + "recompressed={}, unchanged={}, returnedOriginal={})",
+                requestId, originalFilename, originalLength, compressedLength, processed.pageCount(),
+                stats.inspected(), stats.downsampled(), stats.recompressed(), stats.unchanged(), useOriginal);
+        return new CompressionResult(requestId, originalLength, compressedLength, savedBytes, savedPercent,
+                processed.pageCount(), stats.inspected(), stats.downsampled(), stats.recompressed(),
+                stats.unchanged(), profile, durationMillis, useOriginal, bytes);
     }
 
     // ------------------------------------------------------------------
@@ -615,10 +665,28 @@ public class PdfCompressionEngine {
         }
     }
 
+    /** Loads from a file with random access, so the input is never fully buffered in the heap. */
+    private PDDocument loadDocument(Path file) {
+        try {
+            if (properties.getStreamCache() == StreamCacheMode.TEMP_FILE) {
+                return Loader.loadPDF(file.toFile(), IOUtils.createTempFileOnlyStreamCache());
+            }
+            return Loader.loadPDF(file.toFile());
+        } catch (IOException e) {
+            throw new InvalidPdfException("The supplied bytes could not be loaded as a PDF document", e);
+        }
+    }
+
     private static byte[] save(PDDocument doc) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         doc.save(out);
         return out.toByteArray();
+    }
+
+    private static void saveToFile(PDDocument doc, Path file) throws IOException {
+        try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(file))) {
+            doc.save(out);
+        }
     }
 
     /** Removes the XMP {@code /Metadata} stream and the {@code /Info} dictionary from the document. */
