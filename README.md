@@ -209,6 +209,16 @@ nssm start PdfCompressionService
 
 ## HTTP API
 
+### Web UI (`GET /`)
+
+Opening the service root in a browser (`http://localhost:7777/`) serves a self-contained drag-drop page for compressing a PDF without the terminal:
+
+- Drop or pick a PDF and click **Compress**; the optimized file downloads back with an original / compressed / saved-percent summary.
+- An **Advanced options** panel exposes the same per-request overrides the API accepts (`targetDpi`, `jpegQuality`, `maxImageDimension`, `stripMetadata`, `deduplicateImages`); leave them blank to use the server defaults.
+- A navigation menu links to the other views: **Live Logs** (`/logs`), **Health** (`/actuator/health`), and **Version** (`/version`).
+
+The UI is a thin client over `POST /compressPdf` and is purely additive: the `curl` / API flow below is unchanged and remains the primary interface.
+
 ### `POST /compressPdf`
 
 Compresses an uploaded PDF.
