@@ -326,6 +326,18 @@ public class PdfCompressionEngine {
         }
     }
 
+    /**
+     * Validates per-request {@link CompressionOptions} up front, without doing
+     * any work, so a caller (notably the async {@code /jobs} API) can reject an
+     * out-of-range override immediately rather than accepting the job and letting
+     * it fail later on a worker thread.
+     *
+     * @throws InvalidCompressionOptionException if an override is out of range
+     */
+    public void validateOptions(CompressionOptions options) {
+        effectiveProperties(options);
+    }
+
     /** Immutable summary of the shared processing pipeline. */
     private record ProcessedDocument(int pageCount, ImageProcessingStats stats) {
     }

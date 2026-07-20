@@ -3,6 +3,7 @@ package com.github.fkitsantas.pdfcompressionservice;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import jakarta.annotation.PostConstruct;
 import org.springframework.web.method.HandlerMethod;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
  * information at startup.
  */
 @SpringBootApplication(scanBasePackages="com.github.fkitsantas.pdfcompressionservice")
+@EnableScheduling // drives CompressionJobService's retention-based eviction sweep
 public class PdfCompressionServiceApplication {
 
     private final RequestMappingHandlerMapping handlerMapping; // Used to access request mapping details

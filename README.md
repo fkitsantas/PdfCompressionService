@@ -154,6 +154,31 @@ curl -X POST -F 'file=@invoice.pdf' \
 | `422 Unprocessable Entity` | the upload is not a valid PDF |
 | `500 Internal Server Error` | an unexpected failure during compression |
 
+### Asynchronous compression: `POST /jobs`, `GET /jobs/{id}`, `GET /jobs/{id}/result`
+
+For very large uploads a client can avoid holding the HTTP request open for the whole compression: submit the file, get a job id back immediately, poll for completion, then download the result. The same optional per-request parameters as `POST /compressPdf` apply.
+
+```bash
+# 1. Submit (returns 202 with a job id and a Location header):
+curl -X POST -F 'file=@big.pdf' http://localhost:7777/jobs
+# {"jobId":"5e2c…","status":"QUEUED","filename":"big.pdf", …}
+
+# 2. Poll until "status":"SUCCEEDED":
+curl http://localhost:7777/jobs/5e2c…
+# {"jobId":"5e2c…","status":"SUCCEEDED","resultUrl":"/jobs/5e2c…/result","stats":{ …}}
+
+# 3. Download the compressed PDF:
+curl http://localhost:7777/jobs/5e2c…/result --output optimized.pdf
+```
+
+| Endpoint | Result |
+|----------|--------|
+| `POST /jobs` | `202 Accepted` with the job view and a `Location` header; `429` if too many jobs are in flight |
+| `GET /jobs/{id}` | the job's status view (`QUEUED`/`RUNNING`/`SUCCEEDED`/`FAILED`); `404` if unknown or evicted |
+| `GET /jobs/{id}/result` | the compressed PDF once `SUCCEEDED`; `409` if not ready, `404` if unknown |
+
+Jobs (and their results) are retained for a configurable window after completion, then evicted and their temp files deleted. The synchronous `POST /compressPdf` endpoint is unchanged and remains the simplest path for ordinary files.
+
 ### `GET /logs`
 
 Returns an HTML page with the service's recent standard-output and error logs, for quick operational inspection.
@@ -222,6 +247,8 @@ All settings live in `src/main/resources/application.properties` and can be over
 | `pdf.compression.parallelism` | `0` | per-image resize/encode worker threads; `0` = auto (`availableProcessors()`), `1` = sequential |
 | `pdf.compression.parallel-image-threshold` | `2` | minimum eligible images before the parallel path is used |
 | `pdf.compression.max-concurrent-compressions` | `0` | admission gate bounding documents processed at once (peak-heap safety); `0` = auto (`cores × 4`); excess requests block |
+| `pdf.compression.async.max-active-jobs` | `100` | max in-flight `/jobs` submissions before new ones get `429` (bounds queued upload data on disk) |
+| `pdf.compression.async.retention` | `1h` | how long a finished job and its result are retained before eviction/temp-file deletion |
 | `spring.threads.virtual.enabled` | `true` | handle requests on Java 25 virtual threads (blocking-friendly concurrency) |
 
 Example, run on a different port with more aggressive downsampling:

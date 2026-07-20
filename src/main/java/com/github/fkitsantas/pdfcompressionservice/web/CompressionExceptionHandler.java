@@ -13,6 +13,9 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import com.github.fkitsantas.pdfcompressionservice.compression.InvalidCompressionOptionException;
 import com.github.fkitsantas.pdfcompressionservice.compression.InvalidPdfException;
 import com.github.fkitsantas.pdfcompressionservice.compression.PdfCompressionException;
+import com.github.fkitsantas.pdfcompressionservice.job.JobExceptions.JobNotFoundException;
+import com.github.fkitsantas.pdfcompressionservice.job.JobExceptions.JobNotReadyException;
+import com.github.fkitsantas.pdfcompressionservice.job.JobExceptions.TooManyActiveJobsException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -60,6 +63,25 @@ public class CompressionExceptionHandler {
                 requestId, ex.getRequestPartName());
         return build(HttpStatus.BAD_REQUEST,
                 "Required request part '" + ex.getRequestPartName() + "' is missing.", requestId);
+    }
+
+    @ExceptionHandler(JobNotFoundException.class)
+    public ResponseEntity<ApiError> handleJobNotFound(JobNotFoundException ex, HttpServletRequest request) {
+        String requestId = requestId(request);
+        return build(HttpStatus.NOT_FOUND, ex.getMessage(), requestId);
+    }
+
+    @ExceptionHandler(JobNotReadyException.class)
+    public ResponseEntity<ApiError> handleJobNotReady(JobNotReadyException ex, HttpServletRequest request) {
+        String requestId = requestId(request);
+        return build(HttpStatus.CONFLICT, ex.getMessage(), requestId);
+    }
+
+    @ExceptionHandler(TooManyActiveJobsException.class)
+    public ResponseEntity<ApiError> handleTooManyJobs(TooManyActiveJobsException ex, HttpServletRequest request) {
+        String requestId = requestId(request);
+        log.warn("requestId={} action=job-rejected reason=too-many-active-jobs", requestId);
+        return build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), requestId);
     }
 
     @ExceptionHandler(PdfCompressionException.class)
