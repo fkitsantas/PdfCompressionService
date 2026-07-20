@@ -6,9 +6,10 @@ name: Release
 #
 # Resilient publishing: a lightweight job creates the Release once, then every
 # platform job attaches ITS OWN asset independently. No single platform can
-# block the release - if one runner (e.g. the scarce Intel macOS runner) stalls
-# or fails, the other assets still publish; the slow one attaches later if/when
-# it completes.
+# block the release - if one runner stalls or fails, the other assets still
+# publish; the slow one attaches later if/when it completes. (There is no native
+# macOS Intel bundle: GitHub retired its Intel hosted runners; Intel Macs use the
+# portable jar.)
 #
 # Trigger:
 #   * push a tag like v0.2.0  -> builds bundles AND publishes a Release
@@ -43,15 +44,17 @@ jobs:
 
           **Run without installing Java**, self-contained bundles (pick your OS):
           - `*-macos-arm64.zip`, macOS (Apple Silicon)
-          - `*-macos-x64.zip`, macOS (Intel), when available
           - `*-linux-x64.zip`, Linux (x64)
           - `*-windows-x64.zip`, Windows (x64)
 
           Each bundle embeds a trimmed Java 25 runtime; unzip it and follow the
           included `INSTRUCTIONS.txt`. The service listens on http://localhost:7777.
 
-          **Any OS (incl. Intel Mac), or already have Java 25?** `*-portable-jar.zip`
-          is a much smaller download, `java -jar PdfCompressionService.jar`.
+          **On an Intel Mac, any other OS, or already have Java 25?** Use
+          `*-portable-jar.zip`, a much smaller, OS-agnostic download that runs
+          anywhere with `java -jar PdfCompressionService.jar` (Intel Macs are
+          served by this jar; GitHub no longer offers Intel macOS build runners
+          for a native bundle).
 
           Assets are attached per platform as each build finishes, so some may
           appear a little after the release is first created.
@@ -81,10 +84,13 @@ jobs:
             asset: linux-x64
           - os: macos-latest      # Apple Silicon
             asset: macos-arm64
-          - os: macos-13          # Intel
-            asset: macos-x64
           - os: windows-latest
             asset: windows-x64
+          # No native macOS Intel (x64) bundle: GitHub retired the Intel
+          # (macos-13) hosted runners, so that job only ever sat queued for the
+          # 24-hour maximum and was auto-cancelled, and jpackage cannot
+          # cross-compile an x64 .app from the Apple Silicon runner. Intel Macs
+          # are served by the portable jar below (java -jar, needs Java 25).
     steps:
       - uses: actions/checkout@v5
 

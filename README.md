@@ -4,11 +4,12 @@
 [![Release](https://img.shields.io/github/v/release/fkitsantas/PdfCompressionService?sort=semver)](https://github.com/fkitsantas/PdfCompressionService/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-A small, self-contained web service that **shrinks PDF files by intelligently re-encoding their images**, downsampling and recompressing raster content to the resolution actually needed for on-screen and print use, while leaving text, vector graphics, transparency, and page layout untouched.
+A fidelity-preserving PDF compression microservice (Java 25, Spring Boot 4, Apache PDFBox) that **shrinks PDF files by intelligently re-encoding their images**, downsampling and recompressing raster content to the resolution actually needed for screen and print, while leaving text, vector graphics, transparency, and page layout untouched. Use it over a REST API, from the drag-drop web UI, or as an async job for very large files.
 
 - **Table of Contents**
 - [What it does](#what-it-does)
 - [Download & run (no Java required)](#download--run-no-java-required)
+- [Run it as a background service (auto-start on boot)](#run-it-as-a-background-service-auto-start-on-boot)
 - [Alternatives: portable jar & build from source](#alternatives)
 - [HTTP API](#http-api)
 - [Configuration](#configuration)
@@ -32,11 +33,10 @@ Every release ships **self-contained bundles that embed their own Java 25 runtim
 
 1. Go to the [**Releases**](https://github.com/fkitsantas/PdfCompressionService/releases) page and download the bundle for your OS:
    - `…-macos-arm64.zip`, macOS (Apple Silicon)
-   - `…-macos-x64.zip`, macOS (Intel), when available
    - `…-linux-x64.zip`, Linux (x64)
    - `…-windows-x64.zip`, Windows (x64)
 
-   > **On an Intel Mac?** The native Intel bundle isn't always published (GitHub's Intel macOS build runners are scarce). If it's missing from a release, just use the [**portable jar**](#portable-jar-os-agnostic-if-you-already-have-java-25) below, `java -jar PdfCompressionService.jar`, which runs on any OS, including Intel Macs, and only needs Java 25.
+   > **On an Intel Mac?** There is no native Intel bundle: GitHub has retired its Intel (x64) macOS build runners, and `jpackage` cannot cross-build an Intel `.app` from an Apple Silicon runner. Use the [**portable jar**](#portable-jar-os-agnostic-if-you-already-have-java-25) instead, `java -jar PdfCompressionService.jar`, which runs on any OS, including Intel Macs, and only needs Java 25.
 2. Unzip it and follow the included `INSTRUCTIONS.txt`. In short:
 
    | OS | Launch |
@@ -56,6 +56,107 @@ Every release ships **self-contained bundles that embed their own Java 25 runtim
 > ```bash
 > xattr -dr com.apple.quarantine PdfCompressionService.app
 > ```
+
+## Run it as a background service (auto-start on boot)
+
+To keep the service running unattended, restart it if it crashes, and start it again automatically after a reboot, register it with your OS service manager. Each recipe below starts the service **at boot, before/without any user login**, and restarts it if it exits. The service listens on `http://localhost:7777`; append tuning flags (e.g. `--server.port=8080`) to the launch command if needed.
+
+### macOS (launchd)
+
+Works for both the **Apple Silicon bundle** and, on **Intel Macs, the portable jar** (there is no native Intel bundle). Create a system daemon at `/Library/LaunchDaemons/com.fkitsantas.pdfcompressionservice.plist`.
+
+**Apple Silicon bundle** (adjust the path to where you unzipped the `.app`):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>            <string>com.fkitsantas.pdfcompressionservice</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/PdfCompressionService.app/Contents/MacOS/PdfCompressionService</string>
+    </array>
+    <key>RunAtLoad</key>        <true/>   <!-- start at boot -->
+    <key>KeepAlive</key>        <true/>   <!-- restart if it exits -->
+    <key>StandardOutPath</key>  <string>/var/log/pdfcompressionservice.out.log</string>
+    <key>StandardErrorPath</key> <string>/var/log/pdfcompressionservice.err.log</string>
+</dict>
+</plist>
+```
+
+**Intel Mac (portable jar).** Same file, but launch the jar with Java 25. Find your Java path with `/usr/libexec/java_home -v 25`, then use its absolute `bin/java` (a `launchd` daemon has a minimal `PATH`, so a bare `java` will not resolve):
+
+```xml
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Java/JavaVirtualMachines/temurin-25.jdk/Contents/Home/bin/java</string>
+        <string>-jar</string>
+        <string>/opt/pdfcompressionservice/PdfCompressionService.jar</string>
+    </array>
+```
+
+Then load and start it (and it will come back on every reboot):
+
+```bash
+sudo chown root:wheel /Library/LaunchDaemons/com.fkitsantas.pdfcompressionservice.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.fkitsantas.pdfcompressionservice.plist
+# stop / unregister later:
+sudo launchctl bootout system/com.fkitsantas.pdfcompressionservice
+```
+
+> Prefer it to run only while **you** are logged in? Put the same plist in `~/Library/LaunchAgents/` instead and use `launchctl bootstrap gui/$(id -u) …`.
+
+### Linux (systemd)
+
+Create `/etc/systemd/system/pdfcompressionservice.service`:
+
+```ini
+[Unit]
+Description=PDF Compression Service
+After=network.target
+
+[Service]
+Type=simple
+# Self-contained bundle (no system Java needed):
+ExecStart=/opt/PdfCompressionService/bin/PdfCompressionService
+# ...or the portable jar instead (needs Java 25 on PATH):
+# ExecStart=/usr/bin/java -jar /opt/pdfcompressionservice/PdfCompressionService.jar
+Restart=always
+RestartSec=5
+# Run as an unprivileged user you created for it:
+User=pdfsvc
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable it to start now **and** on every boot:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now pdfcompressionservice
+sudo systemctl status pdfcompressionservice   # check it is running
+journalctl -u pdfcompressionservice -f        # follow its logs
+```
+
+### Windows
+
+Simplest, a **Scheduled Task** that runs at startup as SYSTEM (adjust the path to the unzipped bundle):
+
+```powershell
+schtasks /Create /TN "PdfCompressionService" /SC ONSTART /RL HIGHEST /RU SYSTEM `
+  /TR "C:\PdfCompressionService\PdfCompressionService.exe"
+schtasks /Run /TN "PdfCompressionService"     # start it now without rebooting
+```
+
+For a **true Windows service** with automatic restart on crash, use [NSSM](https://nssm.cc):
+
+```powershell
+nssm install PdfCompressionService "C:\PdfCompressionService\PdfCompressionService.exe"
+nssm set PdfCompressionService Start SERVICE_AUTO_START
+nssm start PdfCompressionService
+```
 
 ## Alternatives
 
@@ -281,7 +382,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-[`.github/workflows/release.yml`](.github/workflows/release.yml) then creates the GitHub Release and builds the self-contained bundles for macOS (Apple Silicon + Intel), Linux, and Windows via `jlink` + `jpackage`, plus the portable jar. Each platform **attaches its own asset independently**, so a slow or unavailable runner (notably the scarce Intel macOS runner) never blocks the release, the other assets publish regardless, and any straggler attaches if/when it finishes. (Running the workflow manually builds the bundles as downloadable workflow artifacts without publishing a release.)
+[`.github/workflows/release.yml`](.github/workflows/release.yml) then creates the GitHub Release and builds the self-contained bundles for macOS (Apple Silicon), Linux, and Windows via `jlink` + `jpackage`, plus the OS-agnostic portable jar (which covers Intel Macs). Each platform **attaches its own asset independently**, so a slow or unavailable runner never blocks the release, the other assets publish regardless, and any straggler attaches if/when it finishes. (Running the workflow manually builds the bundles as downloadable workflow artifacts without publishing a release.)
 
 ## Versioning
 
