@@ -48,6 +48,7 @@ public class PdfCompressionProperties {
     private int maxConcurrentCompressions = 0;
     private boolean deduplicateImages = true;
     private boolean stripMetadata = false;
+    private boolean logComposition = true;
 
     /**
      * Returns an independent copy carrying the same values, used to derive a
@@ -73,6 +74,7 @@ public class PdfCompressionProperties {
         c.maxConcurrentCompressions = this.maxConcurrentCompressions;
         c.deduplicateImages = this.deduplicateImages;
         c.stripMetadata = this.stripMetadata;
+        c.logComposition = this.logComposition;
         return c;
     }
 
@@ -318,5 +320,21 @@ public class PdfCompressionProperties {
 
     public void setStripMetadata(boolean stripMetadata) {
         this.stripMetadata = stripMetadata;
+    }
+
+    /**
+     * Whether to log a document-composition report (a byte breakdown by images /
+     * fonts / vectors / other) after each PDF is processed (default {@code true}).
+     * The line is emitted at INFO and so also appears on the live {@code /logs}
+     * page; it shows where a document's bytes actually live, which is a
+     * diagnostic aid for deciding whether vector-level optimization would be
+     * worthwhile beyond the image pass. Purely observational, no effect on output.
+     */
+    public boolean isLogComposition() {
+        return logComposition;
+    }
+
+    public void setLogComposition(boolean logComposition) {
+        this.logComposition = logComposition;
     }
 }

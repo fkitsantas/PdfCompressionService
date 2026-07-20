@@ -32,6 +32,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import jakarta.annotation.PreDestroy;
 
+import com.github.fkitsantas.pdfcompressionservice.analysis.DocumentComposition;
+import com.github.fkitsantas.pdfcompressionservice.analysis.PdfCompositionAnalyzer;
+
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSName;
@@ -252,6 +255,7 @@ public class PdfCompressionEngine {
         acquirePermit(requestId);
         try (PDDocument doc = loadDocument(pdfBytes)) {
             ProcessedDocument processed = processDocument(doc, effective, requestId);
+            logCompositionReport(doc, pdfBytes.length, requestId);
             byte[] candidateBytes = save(doc);
             boolean useOriginal = useOriginal(effective, candidateBytes.length, pdfBytes.length);
             byte[] finalBytes = useOriginal ? pdfBytes : candidateBytes;
@@ -301,6 +305,7 @@ public class PdfCompressionEngine {
         Path candidateFile = null;
         try (PDDocument doc = loadDocument(sourceFile)) {
             ProcessedDocument processed = processDocument(doc, effective, requestId);
+            logCompositionReport(doc, sourceLength, requestId);
             candidateFile = Files.createTempFile("pcs-candidate-", ".pdf");
             saveToFile(doc, candidateFile);
             long candidateLength = Files.size(candidateFile);
@@ -394,6 +399,33 @@ public class PdfCompressionEngine {
             stripMetadata(doc);
         }
         return new ProcessedDocument(pageCount, stats);
+    }
+
+    /**
+     * Logs a document-composition report (byte breakdown by images / fonts /
+     * vectors / other) for the just-processed document, so an operator can see,
+     * on the console and the live {@code /logs} view, where a PDF's bytes live
+     * after the image pass, and thus whether a vector-level optimization would be
+     * worthwhile. Gated by {@link PdfCompressionProperties#isLogComposition()};
+     * best-effort, a failure here never affects the compression result.
+     */
+    private void logCompositionReport(PDDocument doc, long sourceLength, String requestId) {
+        if (!properties.isLogComposition()) {
+            return;
+        }
+        try {
+            DocumentComposition c = PdfCompositionAnalyzer.analyze(doc, sourceLength);
+            log.info("requestId={} action=composition pages={} streamBytes={} "
+                            + "imageBytes={} imagePercent={} fontBytes={} fontPercent={} "
+                            + "vectorBytes={} vectorPercent={} otherBytes={} otherPercent={} "
+                            + "addressableBytes={} addressablePercent={} note=\"{}\"",
+                    requestId, c.pageCount(), c.streamBytesTotal(),
+                    c.images().bytes(), c.images().percent(), c.fonts().bytes(), c.fonts().percent(),
+                    c.vectors().bytes(), c.vectors().percent(), c.other().bytes(), c.other().percent(),
+                    c.addressableBytes(), c.addressablePercent(), c.note());
+        } catch (RuntimeException e) {
+            log.debug("requestId={} action=composition-failed reason={}", requestId, e.getClass().getSimpleName());
+        }
     }
 
     /** Admission gate: bounds how many full documents are resident at once (see {@link #compressionPermits}). */

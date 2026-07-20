@@ -285,6 +285,12 @@ Jobs (and their results) are retained for a configurable window after completion
 
 Returns an HTML page with the service's recent standard-output and error logs, for quick operational inspection.
 
+Among the per-request lines is a **composition report** logged after each PDF is processed (`action=composition`), a byte breakdown by `images` / `fonts` / `vectors` / `other`, with an `addressablePercent` (fonts + vectors) and a plain-English `note`. It shows where each document's bytes actually live, so you can decide from real traffic whether vector/font-level optimization would pay off beyond the image pass. Toggle it with `pdf.compression.log-composition`.
+
+```
+action=composition pages=12 streamBytes=812345 imagePercent=96.4 fontPercent=1.1 vectorPercent=2.1 otherPercent=0.4 addressablePercent=3.2 note="Images are 96% of stream bytes; image optimization is where the savings are, vector/font optimization would move only ~3%."
+```
+
 ### `GET /version`
 
 Returns the running build's identity as JSON, so a deployed instance can be traced back to the exact build that produced it:
@@ -346,6 +352,7 @@ All settings live in `src/main/resources/application.properties` and can be over
 | `pdf.compression.recompress-cmyk` | `false` | whether to recompress CMYK images (changes colour space to RGB) |
 | `pdf.compression.deduplicate-images` | `true` | merge byte-identical images embedded as separate objects (e.g. a per-page logo) into one shared object |
 | `pdf.compression.strip-metadata` | `false` | strip XMP/Info metadata (titles, authors, timestamps, producer) from the output (opt-in) |
+| `pdf.compression.log-composition` | `true` | after each PDF, log a byte-composition report (images / fonts / vectors / other) at INFO, visible on `/logs`; diagnostic only, no effect on output |
 | `pdf.compression.parallelism` | `0` | per-image resize/encode worker threads; `0` = auto (`availableProcessors()`), `1` = sequential |
 | `pdf.compression.parallel-image-threshold` | `2` | minimum eligible images before the parallel path is used |
 | `pdf.compression.max-concurrent-compressions` | `0` | admission gate bounding documents processed at once (peak-heap safety); `0` = auto (`cores × 4`); excess requests block |
