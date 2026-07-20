@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -42,6 +43,25 @@ class WebUiTest {
                 .andExpect(content().contentTypeCompatibleWith("text/html"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("PDF Compression Service")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("/compressPdf")));
+    }
+
+    @Test
+    void missingStaticResourceIsAClean404NotAServerError() throws Exception {
+        // An unmapped path (or a missing static resource) must be a 404, never a 500
+        // "compress-failed" from the global catch-all exception handler.
+        mockMvc.perform(get("/this/path/does/not/exist"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.requestId").exists())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void faviconsAreServed() throws Exception {
+        // The browser's automatic /favicon.ico probe now resolves to a real icon.
+        mockMvc.perform(get("/favicon.ico")).andExpect(status().isOk());
+        mockMvc.perform(get("/favicon.svg"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("image/svg+xml"));
     }
 
     @Test

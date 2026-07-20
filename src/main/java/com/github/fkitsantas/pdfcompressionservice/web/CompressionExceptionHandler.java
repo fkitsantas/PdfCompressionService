@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.github.fkitsantas.pdfcompressionservice.compression.InvalidCompressionOptionException;
 import com.github.fkitsantas.pdfcompressionservice.compression.InvalidPdfException;
@@ -20,10 +21,11 @@ import com.github.fkitsantas.pdfcompressionservice.job.JobExceptions.TooManyActi
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * Translates {@code /compressPdf} failures into a stable JSON {@link ApiError}
- * body instead of a bare status code with no explanation (or, worse, the
- * historical bare {@code 500} with an empty body). Full exception details
- * (including stack traces) go to the server log only, the response body
+ * Global handler that translates failures from any of the service's web
+ * endpoints (compression, jobs, and static-resource requests) into a stable JSON
+ * {@link ApiError} body instead of a bare status code with no explanation (or,
+ * worse, the historical bare {@code 500} with an empty body). Full exception
+ * details (including stack traces) go to the server log only, the response body
  * never leaks internals, just a client-safe message and the correlation id.
  *
  * <p>The request id is normally the one the controller generated and stashed
@@ -84,6 +86,16 @@ public class CompressionExceptionHandler {
         return build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), requestId);
     }
 
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiError> handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
+        String requestId = requestId(request);
+        // A missing static resource (e.g. a browser's automatic /favicon.ico probe, or a
+        // mistyped path) is an ordinary 404, not a server error. Log it quietly, no stack
+        // trace, so it never looks like a compression failure on the /logs view.
+        log.debug("requestId={} action=not-found path={}", requestId, ex.getResourcePath());
+        return build(HttpStatus.NOT_FOUND, "Resource not found.", requestId);
+    }
+
     @ExceptionHandler(PdfCompressionException.class)
     public ResponseEntity<ApiError> handleCompressionFailure(PdfCompressionException ex, HttpServletRequest request) {
         String requestId = requestId(request);
@@ -94,7 +106,9 @@ public class CompressionExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception ex, HttpServletRequest request) {
         String requestId = requestId(request);
-        log.error("requestId={} action=compress-failed reason=unexpected-error", requestId, ex);
+        // Global catch-all across every controller, keep the label neutral (not
+        // compression-specific) so an unexpected error on any endpoint reads correctly.
+        log.error("requestId={} action=request-failed reason=unexpected-error", requestId, ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred.", requestId);
     }
 

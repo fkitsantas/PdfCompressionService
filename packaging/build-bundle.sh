@@ -44,8 +44,16 @@ if [ -z "$APP_JAR" ]; then
   exit 1
 fi
 APP_JAR_NAME="$(basename "$APP_JAR")"
+# Human-facing version for INSTRUCTIONS.txt: the REAL project version, taken from
+# the jar filename (release CI runs versions:set to the tag before packaging, so
+# it is e.g. 0.3.14, or 0.2.0-SNAPSHOT for a local build). This differs from
+# BUNDLE_VERSION, which is the synthetic jpackage --app-version (>= 1 major),
+# used only for the OS bundle metadata.
+DISPLAY_VERSION="${APP_JAR_NAME#${APP_NAME}-}"
+DISPLAY_VERSION="${DISPLAY_VERSION%.jar}"
 echo "==> Application jar: $APP_JAR_NAME"
-echo "==> Bundle version:  $BUNDLE_VERSION"
+echo "==> Release version: $DISPLAY_VERSION"
+echo "==> Bundle version:  $BUNDLE_VERSION (jpackage app-version)"
 
 # --- clean output dirs ------------------------------------------------------
 DIST="$ROOT_DIR/dist"
@@ -108,7 +116,7 @@ case "$OS" in
 esac
 
 cat > "$STAGE/INSTRUCTIONS.txt" <<EOF
-PDF Compression Service ${BUNDLE_VERSION} - Standalone Edition
+PDF Compression Service ${DISPLAY_VERSION} - Standalone Edition
 ================================================================
 
 WHAT THIS IS
@@ -139,11 +147,16 @@ ADVANCED (optional) - tuning compression
   for example a lower target resolution or a different port:
     <launcher> --server.port=8080 --pdf.compression.target-dpi=120
 
-  Common keys (defaults in parentheses):
+  Common keys (defaults shown):
     --pdf.compression.target-dpi=150        image downsample target DPI
     --pdf.compression.jpeg-quality=0.75     JPEG quality (0.0-1.0)
-    --pdf.compression.max-image-dimension=3000
+    --pdf.compression.max-image-dimension=0 output edge cap in px (0 = no cap)
+    --pdf.compression.strip-metadata=false  drop XMP/Info metadata (opt-in)
     --server.port=7777
+
+  You can also override any of these per request as query/form parameters on
+  POST /compressPdf (e.g. -F 'targetDpi=96'), and there is a browser UI at
+  http://localhost:7777/ plus an async job API under /jobs.
 
 SUPPORT
   Project: https://github.com/fkitsantas/PdfCompressionService
