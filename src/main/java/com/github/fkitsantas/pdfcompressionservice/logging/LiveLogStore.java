@@ -24,6 +24,13 @@ import java.util.function.Consumer;
  * long-running service); each event gets a monotonically increasing id so a
  * browser that reconnects can resume from its last-seen id without gaps or
  * duplicates.
+ *
+ * <p><b>Listener contract:</b> listeners are invoked while the internal lock is
+ * held (so replay-then-live ordering is consistent), therefore a listener MUST
+ * be non-blocking and MUST NOT perform I/O - it should only hand the event to
+ * its own buffer. A listener that throws is dropped. The {@code /logs} endpoint
+ * follows this by having its listener do a non-blocking queue offer and doing
+ * the actual network send on a separate per-connection thread.
  */
 public final class LiveLogStore {
 

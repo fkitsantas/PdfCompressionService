@@ -1,6 +1,10 @@
 package com.github.fkitsantas.pdfcompressionservice;
 
 import java.io.IOException;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import org.springframework.http.MediaType;
@@ -23,6 +27,13 @@ import com.github.fkitsantas.pdfcompressionservice.logging.LogEntry;
  * {@code LiveLogAppender}); the endpoint reads no files, so there is nothing to
  * confine and it works identically whether launched from a jar, a bundle, or a
  * service manager.
+ *
+ * <p><b>Delivery is decoupled from logging.</b> {@link LiveLogStore} only ever
+ * hands each event to this connection's bounded queue with a non-blocking
+ * offer; a dedicated virtual thread drains that queue and performs the blocking
+ * {@link SseEmitter#send} network write. So a slow, paused, or vanished viewer
+ * can only fill (and then forfeit) its own queue - it can never block the
+ * threads that emit log events, and one viewer never affects another.
  */
 @Controller
 public class LogsController {
@@ -33,6 +44,14 @@ public class LogsController {
      * from its last-seen event id, so no events are lost across the reconnect.
      */
     private static final long STREAM_TIMEOUT_MS = 30 * 60 * 1000L;
+
+    /**
+     * Per-connection outbound buffer. Comfortably larger than the store's
+     * history capacity so a healthy client receives the full replay plus live
+     * burst; a client too slow to keep up overflows it and is dropped rather
+     * than allowed to accumulate unbounded memory.
+     */
+    private static final int STREAM_QUEUE_CAPACITY = 8192;
 
     @GetMapping("/logs")
     public String getLogsPage() {
@@ -46,27 +65,59 @@ public class LogsController {
         long afterId = parseLastEventId(lastEventId);
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
         LiveLogStore store = LiveLogStore.getInstance();
+        BlockingQueue<LogEntry> queue = new LinkedBlockingQueue<>(STREAM_QUEUE_CAPACITY);
+        AtomicBoolean open = new AtomicBoolean(true);
 
+        // Runs on the logging/replay thread: never blocks, never does I/O. If the
+        // client's queue is full it has fallen too far behind, so drop it (throwing
+        // signals LiveLogStore to unregister this listener).
         Consumer<LogEntry> listener = entry -> {
-            try {
-                emitter.send(SseEmitter.event()
-                        .id(Long.toString(entry.id()))
-                        .name("log")
-                        .data(entry.toJson(), MediaType.APPLICATION_JSON));
-            } catch (IOException | IllegalStateException e) {
-                // Client gone / response closed: signal LiveLogStore to drop this listener.
-                throw new StreamClosedException(e);
+            if (!open.get() || !queue.offer(entry)) {
+                open.set(false);
+                throw new StreamClosedException(null);
             }
         };
 
-        emitter.onCompletion(() -> store.unsubscribe(listener));
-        emitter.onTimeout(() -> {
-            store.unsubscribe(listener);
-            emitter.complete();
+        // One virtual thread per connection performs the blocking sends, so a slow
+        // consumer is confined to its own thread and its own queue.
+        Thread sender = Thread.ofVirtual().name("logs-sse-sender").unstarted(() -> {
+            try {
+                while (open.get()) {
+                    LogEntry entry = queue.poll(1, TimeUnit.SECONDS);
+                    if (entry != null) {
+                        emitter.send(SseEmitter.event()
+                                .id(Long.toString(entry.id()))
+                                .name("log")
+                                .data(entry.toJson(), MediaType.APPLICATION_JSON));
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (IOException | RuntimeException e) {
+                // Client gone / response closed: fall through and clean up.
+            } finally {
+                open.set(false);
+                store.unsubscribe(listener);
+                try {
+                    emitter.complete();
+                } catch (RuntimeException ignored) {
+                    // already completed
+                }
+            }
         });
-        emitter.onError(e -> store.unsubscribe(listener));
 
-        // Atomically replays history then registers for live events (no gap, no duplicate).
+        Runnable close = () -> {
+            open.set(false);
+            store.unsubscribe(listener);
+            sender.interrupt();
+        };
+        emitter.onCompletion(close);
+        emitter.onTimeout(close);
+        emitter.onError(e -> close.run());
+
+        sender.start();
+        // Atomically replays history (non-blocking offers) then registers for live
+        // events, so the queue receives history-then-live in id order, no gap, no dup.
         store.subscribe(afterId, listener);
         return emitter;
     }
@@ -82,7 +133,7 @@ public class LogsController {
         }
     }
 
-    /** Unchecked marker so a dead SSE connection unwinds cleanly through {@link LiveLogStore}. */
+    /** Unchecked marker so a dead/too-slow SSE connection unwinds cleanly through {@link LiveLogStore}. */
     private static final class StreamClosedException extends RuntimeException {
         StreamClosedException(Throwable cause) {
             super(cause);
