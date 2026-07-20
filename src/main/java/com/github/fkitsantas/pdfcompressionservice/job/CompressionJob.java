@@ -44,11 +44,16 @@ public class CompressionJob {
         return source;
     }
 
+    /** Transitions the job to RUNNING and records when a worker picked it up. */
     public synchronized void markRunning() {
         this.status = JobStatus.RUNNING;
         this.startedAt = Instant.now();
     }
 
+    /**
+     * Transitions the job to SUCCEEDED, recording the compression stats and the
+     * retained result file that {@code /jobs/{id}/result} will stream.
+     */
     public synchronized void markSucceeded(CompressionResult result, Path resultFile) {
         this.status = JobStatus.SUCCEEDED;
         this.result = result;
@@ -56,6 +61,7 @@ public class CompressionJob {
         this.finishedAt = Instant.now();
     }
 
+    /** Transitions the job to FAILED, recording the failure's simple class name as its reason. */
     public synchronized void markFailed(String error) {
         this.status = JobStatus.FAILED;
         this.error = error;
