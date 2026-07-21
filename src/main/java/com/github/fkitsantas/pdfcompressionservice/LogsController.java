@@ -107,8 +107,9 @@ public class LogsController {
                 store.unsubscribe(listener);
                 try {
                     emitter.complete();
-                } catch (RuntimeException ignored) {
-                    // already completed
+                } catch (Exception ignored) {
+                    // Client gone or server shutting down: the response is already
+                    // unusable, nothing left to complete.
                 }
             }
         });

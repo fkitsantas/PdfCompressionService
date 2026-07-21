@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -84,6 +86,17 @@ public class CompressionExceptionHandler {
         String requestId = requestId(request);
         log.warn("requestId={} action=job-rejected reason=too-many-active-jobs", requestId);
         return build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), requestId);
+    }
+
+    @ExceptionHandler({AsyncRequestNotUsableException.class, AsyncRequestTimeoutException.class})
+    public void handleAsyncEnded(Exception ex) {
+        // Normal end-of-life for an async /logs SSE stream: the client is gone (browser
+        // closed the tab or navigated away), the server is shutting down, or the stream
+        // hit its timeout and the browser will reconnect. The response can no longer be
+        // written, so return nothing and log quietly - rather than letting the global
+        // handler log an ERROR and then fail trying to write a JSON body onto a
+        // text/event-stream response.
+        log.debug("action=stream-closed reason={}", ex.getClass().getSimpleName());
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
