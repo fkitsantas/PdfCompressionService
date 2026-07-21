@@ -406,11 +406,23 @@ git push origin v0.1.0
 The project follows **semantic versioning**, with git tags as the source of truth for releases:
 
 - **Development builds** carry a `-SNAPSHOT` version (see [`pom.xml`](pom.xml)). Every CI build stamps itself with the workflow **run number** and the **commit SHA** into `META-INF/build-info.properties`, surfaced at [`GET /version`](#get-version), so every successful build is uniquely identifiable.
-- **Releases** are cut by pushing a `vMAJOR.MINOR.PATCH` tag. The release workflow sets the Maven project version to that tag (via `versions:set`) before packaging, so the published bundles, the jar, and `/version` all report the exact released version.
+- **Releases** are cut by a `vMAJOR.MINOR.PATCH` tag. The release workflow sets the Maven project version to that tag (via `versions:set`) before packaging, so the published bundles, the jar, and `/version` all report the exact released version.
+
+### Automatic version bumps
+
+On every green merge to `main`, the [development auto-merge workflow](.github/workflows/development-automerge.yml) tags and releases the next version. **The bump level is derived from the commit messages since the last release**, so the number reflects what actually changed rather than only ever incrementing the patch:
+
+| Bump | Triggered by (any commit since the last tag) |
+|------|----------------------------------------------|
+| **major** (`0.4.1` → `1.0.0`) | `BREAKING CHANGE` in a commit body, a Conventional Commit `type!:` subject (e.g. `feat!:`), or an explicit `[major]` marker |
+| **minor** (`0.3.9` → `0.4.0`) | a `feat:` / `feat(scope):` subject, or an explicit `[minor]` marker |
+| **patch** (`0.3.9` → `0.3.10`) | anything else — `fix:`, `docs:`, `refactor:`, chores, or free-form messages |
+
+So a plain fix keeps you on patch releases; land a feature (`feat:` or `[minor]` in the message) to roll to the next minor, and a breaking change (`[major]`) to roll the major. You can also **force an exact version** by pushing a tag by hand:
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0   # builds + publishes the release; no release is cut on ordinary pushes
+git tag v1.0.0
+git push origin v1.0.0   # builds + publishes that exact release
 ```
 
 ## License

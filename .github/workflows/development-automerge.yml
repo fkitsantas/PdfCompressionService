@@ -9,12 +9,14 @@ name: Development auto-merge
 # The push to `main` uses the built-in GITHUB_TOKEN, which by design does not
 # retrigger workflows, so there is no loop.
 #
-# After merging, it also cuts a release automatically: it bumps the patch of the
-# latest vX.Y.Z tag, pushes the new tag, and triggers the Release workflow on it.
-# (A GITHUB_TOKEN tag push does not fire the release's push trigger, so the
-# release is started via an explicit workflow_dispatch, which does run from the
-# token.) Push a vX.Y.0 tag by hand any time you want a minor/major bump instead;
-# the next automatic release simply continues from whatever the latest tag is.
+# After merging, it also cuts a release automatically. The version bump is derived
+# from the commit messages since the last release tag (Conventional Commits, plus
+# explicit [minor]/[major] markers): a feature bumps the minor, a breaking change
+# bumps the major, anything else bumps the patch. It then pushes the new tag and
+# triggers the Release workflow on it. (A GITHUB_TOKEN tag push does not fire the
+# release's push trigger, so the release is started via an explicit
+# workflow_dispatch, which does run from the token.) You can still push a vX.Y.Z
+# tag by hand any time to force a specific version.
 
 on:
   push:
@@ -63,7 +65,7 @@ jobs:
           fi
           git push origin main
 
-      - name: Auto-tag the next patch version and trigger a release
+      - name: Auto-tag the next semantic version and trigger a release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -73,12 +75,29 @@ jobs:
           LATEST="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n1)"
           LATEST="${LATEST:-v0.0.0}"
           IFS=. read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
-          NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+          # Decide the bump from the commit messages since the last release, so the
+          # version reflects what actually changed instead of only ever bumping patch:
+          #   major - a breaking change: 'BREAKING CHANGE' in a body, a Conventional
+          #           Commit '<type>!:' subject, or an explicit '[major]' marker
+          #   minor - a new feature: a 'feat:'/'feat(scope):' subject, or '[minor]'
+          #   patch - anything else (fixes, docs, chores, refactors, free-form)
+          RANGE="${LATEST}..HEAD"
+          git rev-parse -q --verify "refs/tags/${LATEST}" >/dev/null 2>&1 || RANGE="HEAD"
+          MSGS="$(git log --format='%B' ${RANGE})"
+          if grep -qiE 'BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:|\[major\]' <<< "$MSGS"; then
+            BUMP=major; NEXT="v$((MAJOR + 1)).0.0"
+          elif grep -qiE '^feat(\([^)]*\))?:|\[minor\]' <<< "$MSGS"; then
+            BUMP=minor; NEXT="v${MAJOR}.$((MINOR + 1)).0"
+          else
+            BUMP=patch; NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+
           if git rev-parse -q --verify "refs/tags/${NEXT}" >/dev/null; then
             echo "Tag ${NEXT} already exists, nothing to release."
             exit 0
           fi
-          echo "Latest release tag ${LATEST} -> tagging ${NEXT}"
+          echo "Latest release tag ${LATEST}, bump=${BUMP} -> tagging ${NEXT}"
           git tag -a "${NEXT}" -m "Release ${NEXT}" "${GITHUB_SHA}"
           git push origin "${NEXT}"
           # workflow_dispatch on the new tag ref: the Release workflow then sees
