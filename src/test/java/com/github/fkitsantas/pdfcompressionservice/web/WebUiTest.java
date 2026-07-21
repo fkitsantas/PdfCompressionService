@@ -67,11 +67,11 @@ class WebUiTest {
 
     @Test
     void faviconsAreServed() throws Exception {
-        // The browser's automatic /favicon.ico probe now resolves to a real icon.
+        // The browser's automatic /favicon.ico probe resolves to the logo-derived icon.
         mockMvc.perform(get("/favicon.ico")).andExpect(status().isOk());
-        mockMvc.perform(get("/favicon.svg"))
+        mockMvc.perform(get("/PdfCompressionService.png"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith("image/svg+xml"));
+                .andExpect(content().contentTypeCompatibleWith("image/png"));
     }
 
     @Test

@@ -1,8 +1,12 @@
-# PDF Compression Service
+<p align="center">
+  <img src="src/main/resources/static/PdfCompressionService.png" alt="PDF Compression Service" width="260">
+</p>
 
-[![CI](https://github.com/fkitsantas/PdfCompressionService/actions/workflows/ci.yml/badge.svg)](https://github.com/fkitsantas/PdfCompressionService/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/fkitsantas/PdfCompressionService?sort=semver)](https://github.com/fkitsantas/PdfCompressionService/releases/latest)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/fkitsantas/PdfCompressionService/actions/workflows/ci.yml"><img src="https://github.com/fkitsantas/PdfCompressionService/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/fkitsantas/PdfCompressionService/releases/latest"><img src="https://img.shields.io/github/v/release/fkitsantas/PdfCompressionService?sort=semver" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
+</p>
 
 A fidelity-preserving PDF compression microservice (Java 25, Spring Boot 4, Apache PDFBox) that **shrinks PDF files by intelligently re-encoding their images**, downsampling and recompressing raster content to the resolution actually needed for screen and print, while leaving text, vector graphics, transparency, and page layout untouched. Use it over a REST API, from the drag-drop web UI, or as an async job for very large files.
 
