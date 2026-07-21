@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import com.github.fkitsantas.pdfcompressionservice.analysis.DocumentComposition;
 import com.github.fkitsantas.pdfcompressionservice.analysis.PdfCompositionAnalyzer;
+import com.github.fkitsantas.pdfcompressionservice.fixtures.InvoiceCorpusFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -73,6 +74,41 @@ class TrueTypeSubsetterTest {
                 assertThat(pixelDifferenceRatio(rendersBefore[i], rendersAfter[i]))
                         .as("page %d must render the same after subsetting", i)
                         .isLessThan(0.001);
+            }
+        }
+    }
+
+    @Test
+    void subsettingSimpleTrueTypeIsRenderIdenticalAndSmaller() throws IOException {
+        byte[] before = InvoiceCorpusFactory.fontHeavyDocumentSimpleTrueType(3);
+        assumeTrue(before != null, "no system TrueType font available to build the fixture");
+        long fontsBefore = PdfCompositionAnalyzer.analyze(Loader.loadPDF(before), before.length).fonts().bytes();
+
+        byte[] after;
+        BufferedImage[] rendersBefore;
+        String textBefore;
+        try (PDDocument doc = Loader.loadPDF(before)) {
+            rendersBefore = render(doc);
+            textBefore = new PDFTextStripper().getText(doc);
+            assertThat(new TrueTypeSubsetter().subsetFonts(doc, "req-simple").fontsSubset())
+                    .as("the simple TrueType font should be subset").isPositive();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            doc.save(out);
+            after = out.toByteArray();
+        }
+
+        try (PDDocument doc = Loader.loadPDF(after)) {
+            assertThat(PdfCompositionAnalyzer.analyze(doc, after.length).fonts().bytes())
+                    .as("the simple font shrinks").isLessThan(fontsBefore);
+            assertThat(new PDFTextStripper().getText(doc)).isEqualTo(textBefore);
+            BufferedImage[] rendersAfter = render(doc);
+            for (int i = 0; i < rendersAfter.length; i++) {
+                // Strict: subsetting a simple font by unicode preserves the cmap exactly, so the
+                // rendered pixels must be byte-for-byte identical (unlike the garbling from a
+                // glyph-id subset).
+                assertThat(pixelDifferenceRatio(rendersBefore[i], rendersAfter[i]))
+                        .as("page %d must render identically after simple-font subsetting", i)
+                        .isEqualTo(0.0);
             }
         }
     }

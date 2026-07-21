@@ -11,6 +11,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.font.PDCIDFontType2;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDFontDescriptor;
+import org.apache.pdfbox.pdmodel.font.PDTrueTypeFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.util.Matrix;
 import org.apache.pdfbox.util.Vector;
@@ -28,11 +29,14 @@ import org.apache.pdfbox.util.Vector;
  */
 final class GlyphUsageEngine extends PDFGraphicsStreamEngine {
 
-    private final Map<COSDictionary, UsedFont> used;
+    private final Map<COSDictionary, UsedFont> composite;
+    private final Map<COSDictionary, UsedSimpleFont> simple;
 
-    GlyphUsageEngine(PDPage page, Map<COSDictionary, UsedFont> used) {
+    GlyphUsageEngine(PDPage page, Map<COSDictionary, UsedFont> composite,
+                     Map<COSDictionary, UsedSimpleFont> simple) {
         super(page);
-        this.used = used;
+        this.composite = composite;
+        this.simple = simple;
     }
 
     @Override
@@ -43,16 +47,23 @@ final class GlyphUsageEngine extends PDFGraphicsStreamEngine {
     }
 
     private void record(PDFont font, int code) throws IOException {
-        if (!(font instanceof PDType0Font type0)
-                || !(type0.getDescendantFont() instanceof PDCIDFontType2 cidFont)) {
+        if (font instanceof PDType0Font type0
+                && type0.getDescendantFont() instanceof PDCIDFontType2 cidFont) {
+            PDFontDescriptor descriptor = cidFont.getFontDescriptor();
+            if (descriptor == null || descriptor.getFontFile2() == null) {
+                return; // not an embedded TrueType program
+            }
+            UsedFont usedFont = composite.computeIfAbsent(cidFont.getCOSObject(), k -> new UsedFont(type0, cidFont));
+            usedFont.record(type0.codeToCID(code), type0.codeToGID(code));
             return;
         }
-        PDFontDescriptor descriptor = cidFont.getFontDescriptor();
-        if (descriptor == null || descriptor.getFontFile2() == null) {
-            return; // not an embedded TrueType program
+        if (font instanceof PDTrueTypeFont trueType && trueType.isEmbedded() && !trueType.isSymbolic()) {
+            PDFontDescriptor descriptor = trueType.getFontDescriptor();
+            if (descriptor == null || descriptor.getFontFile2() == null) {
+                return; // not an embedded TrueType program
+            }
+            simple.computeIfAbsent(trueType.getCOSObject(), k -> new UsedSimpleFont(trueType)).usedCodes.add(code);
         }
-        UsedFont usedFont = used.computeIfAbsent(cidFont.getCOSObject(), k -> new UsedFont(type0, cidFont));
-        usedFont.record(type0.codeToCID(code), type0.codeToGID(code));
     }
 
     // ------------------------------------------------------------------

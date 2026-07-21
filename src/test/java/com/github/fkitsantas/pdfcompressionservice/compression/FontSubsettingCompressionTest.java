@@ -41,6 +41,24 @@ class FontSubsettingCompressionTest {
     }
 
     @Test
+    void simpleTrueTypeFontHeavyDocumentIsShrunk() throws IOException {
+        // The case reported from the field: full-embedded simple TrueType (e.g. Arial) fonts.
+        byte[] pdf = InvoiceCorpusFactory.fontHeavyDocumentSimpleTrueType(20);
+        assumeTrue(pdf != null, "no system TrueType font available to build the fixture");
+
+        CompressionResult result = new PdfCompressionEngine(new PdfCompressionProperties())
+                .compress(pdf, "guide.pdf", "req-simple-heavy");
+
+        assertThat(result.isReturnedOriginal()).as("simple-font subsetting should pay off").isFalse();
+        assertThat(result.getCompressedBytes())
+                .as("simple TrueType subsetting materially shrinks the file")
+                .isLessThan((long) (result.getOriginalBytes() * 0.6));
+        try (PDDocument doc = Loader.loadPDF(result.getCompressedPdf())) {
+            assertThat(new PDFTextStripper().getText(doc)).contains("DoctorHand guide, chapter 0");
+        }
+    }
+
+    @Test
     void subsettingCanBeDisabled() throws IOException {
         byte[] pdf = InvoiceCorpusFactory.fontHeavyDocument(20);
         assumeTrue(pdf != null, "no system TrueType font available to build the fixture");

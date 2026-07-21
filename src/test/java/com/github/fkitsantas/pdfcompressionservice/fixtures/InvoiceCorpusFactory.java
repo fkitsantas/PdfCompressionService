@@ -978,4 +978,40 @@ public final class InvoiceCorpusFactory {
             return save(doc);
         }
     }
+
+    /**
+     * Like {@link #fontHeavyDocument(int)} but the font is embedded as a <b>simple</b>
+     * (non-composite) TrueType font with WinAnsi encoding, the shape that older/simpler
+     * producers use for full system fonts such as Arial. Returns {@code null} if no system
+     * TrueType font is available.
+     */
+    public static byte[] fontHeavyDocumentSimpleTrueType(int pageCount) throws IOException {
+        java.nio.file.Path fontFile = systemTrueTypeFont();
+        if (fontFile == null) {
+            return null;
+        }
+        try (PDDocument doc = new PDDocument()) {
+            org.apache.pdfbox.pdmodel.font.PDTrueTypeFont font;
+            try (var in = java.nio.file.Files.newInputStream(fontFile)) {
+                font = org.apache.pdfbox.pdmodel.font.PDTrueTypeFont.load(doc, in,
+                        org.apache.pdfbox.pdmodel.font.encoding.WinAnsiEncoding.INSTANCE);
+            }
+            for (int p = 0; p < pageCount; p++) {
+                PDPage page = new PDPage(PDRectangle.A4);
+                doc.addPage(page);
+                try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+                    cs.beginText();
+                    cs.setFont(font, 11);
+                    cs.setLeading(15);
+                    cs.newLineAtOffset(50, 780);
+                    for (int line = 0; line < 40; line++) {
+                        cs.showText("The DoctorHand guide, chapter " + line + ": record, review and sign notes.");
+                        cs.newLine();
+                    }
+                    cs.endText();
+                }
+            }
+            return save(doc);
+        }
+    }
 }

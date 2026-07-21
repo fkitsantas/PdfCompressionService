@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.apache.fontbox.ttf.CmapLookup;
 import org.apache.fontbox.ttf.TTFSubsetter;
 import org.apache.fontbox.ttf.TrueTypeFont;
 import org.apache.pdfbox.cos.COSBase;
@@ -21,6 +22,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.font.PDCIDFontType2;
 import org.apache.pdfbox.pdmodel.font.PDFontDescriptor;
+import org.apache.pdfbox.pdmodel.font.PDTrueTypeFont;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,8 +36,10 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Scope and safety rules:
  * <ul>
- *   <li>Only <b>embedded CIDFontType2 (composite TrueType)</b> fonts, the dominant
- *       modern case, are handled; simple TrueType, CFF/Type1 and Type3 are skipped.</li>
+ *   <li>Embedded TrueType fonts are handled, both <b>composite (CIDFontType2)</b> - subset by
+ *       glyph id, with a rewritten {@code /CIDToGIDMap} - and <b>simple, non-symbolic</b> ones,
+ *       subset by unicode code point so their {@code cmap} still resolves. CFF/Type1 and Type3
+ *       are skipped (no FontBox subsetter / not glyf-based).</li>
  *   <li>The glyph scan must succeed for the <b>whole</b> document (pages, form
  *       XObjects, Type3, annotation appearances); if any part fails to parse, the
  *       document is left entirely unchanged rather than risk an incomplete scan.</li>
@@ -62,16 +66,17 @@ public final class TrueTypeSubsetter {
      * saved (the real file saving is realized when the document is written).
      */
     public Outcome subsetFonts(PDDocument doc, String requestId) {
-        Map<COSDictionary, UsedFont> used = new IdentityHashMap<>();
+        Map<COSDictionary, UsedFont> composite = new IdentityHashMap<>();
+        Map<COSDictionary, UsedSimpleFont> simple = new IdentityHashMap<>();
         try {
-            collectUsage(doc, used);
+            collectUsage(doc, composite, simple);
         } catch (Exception e) {
             // Could not fully walk the document, do nothing rather than risk dropping a used glyph.
             log.debug("requestId={} action=subset-skipped reason=incomplete-scan detail={}",
                     requestId, e.getClass().getSimpleName());
             return Outcome.NONE;
         }
-        if (used.isEmpty()) {
+        if (composite.isEmpty() && simple.isEmpty()) {
             return Outcome.NONE;
         }
 
@@ -79,7 +84,7 @@ public final class TrueTypeSubsetter {
         int fontsSubset = 0;
         long saved = 0;
         int index = 0;
-        for (UsedFont usedFont : used.values()) {
+        for (UsedFont usedFont : composite.values()) {
             try {
                 long delta = subsetOne(doc, usedFont, fontFileReferences, tag(index++));
                 if (delta > 0) {
@@ -87,7 +92,19 @@ public final class TrueTypeSubsetter {
                     saved += delta;
                 }
             } catch (Exception e) {
-                log.debug("requestId={} action=subset-font-skipped reason={} detail={}",
+                log.debug("requestId={} action=subset-font-skipped scope=composite reason={} detail={}",
+                        requestId, e.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+        for (UsedSimpleFont usedFont : simple.values()) {
+            try {
+                long delta = subsetSimpleOne(doc, usedFont, fontFileReferences, tag(index++));
+                if (delta > 0) {
+                    fontsSubset++;
+                    saved += delta;
+                }
+            } catch (Exception e) {
+                log.debug("requestId={} action=subset-font-skipped scope=simple reason={} detail={}",
                         requestId, e.getClass().getSimpleName(), e.getMessage());
             }
         }
@@ -97,9 +114,10 @@ public final class TrueTypeSubsetter {
         return new Outcome(fontsSubset, saved);
     }
 
-    private void collectUsage(PDDocument doc, Map<COSDictionary, UsedFont> used) throws IOException {
+    private void collectUsage(PDDocument doc, Map<COSDictionary, UsedFont> composite,
+                              Map<COSDictionary, UsedSimpleFont> simple) throws IOException {
         for (PDPage page : doc.getPages()) {
-            GlyphUsageEngine engine = new GlyphUsageEngine(page, used);
+            GlyphUsageEngine engine = new GlyphUsageEngine(page, composite, simple);
             engine.processPage(page);
             for (PDAnnotation annotation : page.getAnnotations()) {
                 engine.showAnnotation(annotation);
@@ -198,6 +216,81 @@ public final class TrueTypeSubsetter {
         cidFont.getCOSObject().setName(COSName.BASE_FONT, tagged);
         descriptor.getCOSObject().setName(COSName.FONT_NAME, tagged);
 
+        return compareAgainst - subset.length;
+    }
+
+    /**
+     * Subsets one embedded <b>simple</b> TrueType font by <b>unicode code point</b> (not glyph id),
+     * which keeps the font's {@code cmap} intact so the renderer still resolves each code to the
+     * same glyph. Simple fonts have no {@code /CIDToGIDMap}; the code-keyed {@code /Widths},
+     * {@code /Encoding} etc. are untouched.
+     *
+     * <p>Safety: skipped unless the font's own unicode {@code cmap} resolves every used code's
+     * unicode back to exactly the glyph the renderer draws for that code
+     * ({@link PDTrueTypeFont#codeToGID}). If they disagree (custom {@code /Differences}, symbolic
+     * mapping, ...) subsetting by unicode could keep the wrong glyph, so the font is left as-is.
+     */
+    private long subsetSimpleOne(PDDocument doc, UsedSimpleFont usedFont,
+                                 Map<COSBase, Integer> fontFileReferences, String tag) throws IOException {
+        PDTrueTypeFont font = usedFont.font;
+        PDFontDescriptor descriptor = font.getFontDescriptor();
+        COSStream fontFileCos = descriptor.getFontFile2().getCOSObject();
+        if (fontFileReferences.getOrDefault(fontFileCos, 0) != 1) {
+            return 0; // shared program, do not touch
+        }
+        String baseName = font.getName();
+        if (baseName == null) {
+            return 0;
+        }
+        if (baseName.matches("[A-Z]{6}\\+.+")) {
+            baseName = baseName.substring(7); // re-subset even an already-tagged font if it shrinks
+        }
+
+        TrueTypeFont ttf = font.getTrueTypeFont();
+        CmapLookup unicodeCmap = ttf.getUnicodeCmapLookup();
+        if (unicodeCmap == null) {
+            return 0;
+        }
+        Set<Integer> codePoints = new TreeSet<>();
+        for (int code : usedFont.usedCodes) {
+            String unicode = font.toUnicode(code);
+            if (unicode == null || unicode.isEmpty()) {
+                return 0; // no reliable unicode for a used code, cannot subset by unicode safely
+            }
+            int codePoint = unicode.codePointAt(0);
+            if (unicodeCmap.getGlyphId(codePoint) != font.codeToGID(code)) {
+                return 0; // unicode path and render path disagree, abort (safety)
+            }
+            codePoints.add(codePoint);
+        }
+        if (codePoints.isEmpty()) {
+            return 0;
+        }
+
+        long compareAgainst = fontFileCos.getInt(COSName.LENGTH1, -1);
+        if (compareAgainst <= 0) {
+            compareAgainst = fontFileCos.getLength();
+        }
+
+        TTFSubsetter subsetter = new TTFSubsetter(ttf);
+        subsetter.setPrefix(tag);
+        for (int codePoint : codePoints) {
+            subsetter.add(codePoint);
+        }
+        ByteArrayOutputStream fontBytes = new ByteArrayOutputStream();
+        subsetter.writeToStream(fontBytes);
+        byte[] subset = fontBytes.toByteArray();
+        if (subset.length >= compareAgainst) {
+            return 0; // not smaller
+        }
+
+        try (OutputStream out = fontFileCos.createOutputStream(COSName.FLATE_DECODE)) {
+            out.write(subset);
+        }
+        fontFileCos.setInt(COSName.LENGTH1, subset.length);
+        String tagged = tag + "+" + baseName;
+        font.getCOSObject().setName(COSName.BASE_FONT, tagged);
+        descriptor.getCOSObject().setName(COSName.FONT_NAME, tagged);
         return compareAgainst - subset.length;
     }
 
