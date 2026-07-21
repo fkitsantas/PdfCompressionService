@@ -19,6 +19,7 @@ import com.github.fkitsantas.pdfcompressionservice.compression.PdfCompressionExc
 import com.github.fkitsantas.pdfcompressionservice.job.JobExceptions.JobNotFoundException;
 import com.github.fkitsantas.pdfcompressionservice.job.JobExceptions.JobNotReadyException;
 import com.github.fkitsantas.pdfcompressionservice.job.JobExceptions.TooManyActiveJobsException;
+import com.github.fkitsantas.pdfcompressionservice.service.AutostartException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -107,6 +108,13 @@ public class CompressionExceptionHandler {
         // trace, so it never looks like a compression failure on the /logs view.
         log.debug("requestId={} action=not-found path={}", requestId, ex.getResourcePath());
         return build(HttpStatus.NOT_FOUND, "Resource not found.", requestId);
+    }
+
+    @ExceptionHandler(AutostartException.class)
+    public ResponseEntity<ApiError> handleAutostart(AutostartException ex, HttpServletRequest request) {
+        String requestId = requestId(request);
+        log.warn("requestId={} action=autostart-failed detail={}", requestId, ex.getMessage());
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), requestId);
     }
 
     @ExceptionHandler(PdfCompressionException.class)

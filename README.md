@@ -108,6 +108,8 @@ packaging/build-bundle.sh 1.0.0   # output staged under dist/stage/
 
 ## Run it as a background service (auto-start on boot)
 
+> **One-click from the UI.** The web page at `http://localhost:7777/` has a **Run automatically** panel that shows whether autostart is already set up and, with a single click and **no password**, installs a per-user *start-at-login* entry (macOS `launchd` LaunchAgent, Linux `systemd --user`, or a Windows logon task). For a system-wide *start-at-boot* service it shows you the exact admin commands to run in **your own terminal** — the app never asks for or handles your password. The manual recipes below are the equivalent, if you prefer doing it yourself. (Note: on macOS, move the app out of the quarantined *App Translocation* location into `/Applications` first, or the autostart path won't survive a reboot.)
+
 Once you have picked a way to run it above (a self-contained bundle or the portable jar), register that with your OS service manager to keep it running unattended, restart it if it crashes, and start it again automatically after a reboot. Each recipe below starts the service **at boot, before/without any user login**, and restarts it if it exits. The service listens on `http://localhost:7777`; append tuning flags (e.g. `--server.port=8080`) to the launch command if needed.
 
 ### macOS (launchd)
