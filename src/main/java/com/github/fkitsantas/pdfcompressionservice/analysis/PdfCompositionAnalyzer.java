@@ -1,8 +1,12 @@
 package com.github.fkitsantas.pdfcompressionservice.analysis;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Set;
+
+import com.github.fkitsantas.pdfcompressionservice.analysis.DocumentComposition.FontInfo;
 
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
@@ -42,12 +46,15 @@ public final class PdfCompositionAnalyzer {
         for (PDPage page : doc.getPages()) {
             collectContentStreams(page.getCOSObject().getDictionaryObject(COSName.CONTENTS), contentStreams);
         }
-        // Embedded font programs, from every font descriptor in the document.
+        // Embedded font programs, from every font descriptor in the document. Each program
+        // is also recorded once (by stream identity) with the detail the diagnostic needs.
+        Map<COSBase, FontInfo> fonts = new IdentityHashMap<>();
         for (COSObjectKey key : cos.getXrefTable().keySet()) {
             if (resolve(cos, key) instanceof COSDictionary dict) {
                 addIfStream(dict.getDictionaryObject(COSName.FONT_FILE), fontStreams);
                 addIfStream(dict.getDictionaryObject(COSName.FONT_FILE2), fontStreams);
                 addIfStream(dict.getDictionaryObject(COSName.FONT_FILE3), fontStreams);
+                recordFont(dict, fonts);
             }
         }
 
@@ -82,7 +89,42 @@ public final class PdfCompositionAnalyzer {
         }
 
         return DocumentComposition.of(fileSizeBytes, doc.getNumberOfPages(),
-                imageBytes, imageCount, fontBytes, fontCount, vectorBytes, vectorCount, otherBytes, otherCount);
+                imageBytes, imageCount, fontBytes, fontCount, vectorBytes, vectorCount, otherBytes, otherCount,
+                new ArrayList<>(fonts.values()));
+    }
+
+    /**
+     * Records one embedded font program from a font descriptor {@code dict}, keyed by its
+     * FontFile stream identity so a shared program is counted once. TrueType (FontFile2)
+     * programs that are not already carrying a {@code ABCDEF+} subset tag are flagged
+     * {@code subsettable}; CFF (FontFile3) and Type1 (FontFile) are recorded but not (yet)
+     * considered subsettable by this service.
+     */
+    private static void recordFont(COSDictionary dict, Map<COSBase, FontInfo> fonts) {
+        COSStream stream;
+        String program;
+        if (dict.getDictionaryObject(COSName.FONT_FILE2) instanceof COSStream s) {
+            stream = s;
+            program = "TrueType";
+        } else if (dict.getDictionaryObject(COSName.FONT_FILE3) instanceof COSStream s) {
+            stream = s;
+            program = "CFF";
+        } else if (dict.getDictionaryObject(COSName.FONT_FILE) instanceof COSStream s) {
+            stream = s;
+            program = "Type1";
+        } else {
+            return;
+        }
+        if (fonts.containsKey(stream)) {
+            return;
+        }
+        String name = dict.getNameAsString(COSName.FONT_NAME);
+        if (name == null) {
+            name = "(unnamed)";
+        }
+        boolean alreadySubset = name.matches("[A-Z]{6}\\+.+");
+        boolean subsettable = "TrueType".equals(program) && !alreadySubset;
+        fonts.put(stream, new FontInfo(name, program, alreadySubset, subsettable, Math.max(0, stream.getLength())));
     }
 
     private static void collectContentStreams(COSBase contents, Set<COSBase> into) {

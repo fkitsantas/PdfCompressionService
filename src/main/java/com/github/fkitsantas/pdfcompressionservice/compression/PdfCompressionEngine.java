@@ -418,11 +418,17 @@ public class PdfCompressionEngine {
             log.info("requestId={} action=composition pages={} streamBytes={} "
                             + "imageBytes={} imagePercent={} fontBytes={} fontPercent={} "
                             + "vectorBytes={} vectorPercent={} otherBytes={} otherPercent={} "
-                            + "addressableBytes={} addressablePercent={} note=\"{}\"",
+                            + "addressableBytes={} addressablePercent={} embeddedFonts={} subsettableFonts={} "
+                            + "subsettableFontBytes={} note=\"{}\"",
                     requestId, c.pageCount(), c.streamBytesTotal(),
                     c.images().bytes(), c.images().percent(), c.fonts().bytes(), c.fonts().percent(),
                     c.vectors().bytes(), c.vectors().percent(), c.other().bytes(), c.other().percent(),
-                    c.addressableBytes(), c.addressablePercent(), c.note());
+                    c.addressableBytes(), c.addressablePercent(), c.embeddedFonts().size(),
+                    c.subsettableFontCount(), c.subsettableFontBytes(), c.note());
+            for (DocumentComposition.FontInfo f : c.embeddedFonts()) {
+                log.debug("requestId={} action=font name={} program={} bytes={} alreadySubset={} subsettable={}",
+                        requestId, f.name(), f.program(), f.bytes(), f.alreadySubset(), f.subsettable());
+            }
         } catch (RuntimeException e) {
             log.debug("requestId={} action=composition-failed reason={}", requestId, e.getClass().getSimpleName());
         }
