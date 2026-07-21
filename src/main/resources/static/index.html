@@ -112,13 +112,15 @@
         .svc-note { color: var(--muted); font-size: 0.82rem; margin-top: 10px; }
         .svc-note code { background: var(--bg); border: 1px solid var(--border); padding: 1px 5px; border-radius: 5px; word-break: break-all; }
         .svc-warn { border: 1px solid var(--err); color: var(--fg); border-radius: 10px; padding: 12px 14px; font-size: 0.85rem; margin-bottom: 12px; }
-        details.svc-adv { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
-        details.svc-adv summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
         .cmd {
             background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-top: 8px;
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem;
             white-space: pre-wrap; word-break: break-all; overflow-x: auto;
         }
+        .menu a.tab { cursor: pointer; }
+        .tab-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-left: 7px; vertical-align: middle; }
+        .svc-boot { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+        .svc-boot h3 { font-size: 0.95rem; margin: 0 0 4px; }
     </style>
 </head>
 <body>
@@ -127,14 +129,15 @@
         <h1>PDF Compression Service</h1>
         <p>Shrink a PDF by re-encoding its images, while keeping text and layout intact.</p>
         <nav class="menu">
-            <a href="/" class="active">Compress</a>
+            <a href="#" class="tab active" data-tab="compress">Compress</a>
+            <a href="#" class="tab" data-tab="automate" id="tabAutomate" hidden>Run automatically<span class="tab-dot" id="tabDot" hidden title="Enabled"></span></a>
             <a href="/logs">Live Logs</a>
             <a href="/actuator/health" target="_blank" rel="noopener">Health</a>
             <a href="/version" target="_blank" rel="noopener">Version</a>
         </nav>
     </header>
 
-    <div class="card">
+    <div class="card" id="panel-compress">
         <div class="drop" id="drop" role="button" tabindex="0" aria-label="Choose or drop a PDF">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -181,7 +184,7 @@
         <div class="status" id="status"></div>
     </div>
 
-    <div class="card svc" id="svc" hidden>
+    <div class="card svc" id="panel-automate" hidden>
         <h2>Run automatically</h2>
         <p class="sub">Keep the service running and start it again after a reboot.</p>
         <div id="svcBody"></div>
@@ -291,11 +294,27 @@
         });
     })();
 
+    // ----- Tab navigation between the Compress and Run-automatically panels -----
+    (function () {
+        var tabs = document.querySelectorAll('.menu a.tab');
+        function activate(name) {
+            tabs.forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-tab') === name); });
+            var compress = document.getElementById('panel-compress');
+            var automate = document.getElementById('panel-automate');
+            if (compress) compress.hidden = name !== 'compress';
+            if (automate) automate.hidden = name !== 'automate';
+        }
+        tabs.forEach(function (t) {
+            t.addEventListener('click', function (e) { e.preventDefault(); activate(t.getAttribute('data-tab')); });
+        });
+    })();
+
     // ----- "Run automatically" panel: shows live autostart status and toggles the login-scope entry -----
     (function () {
-        var card = document.getElementById('svc');
         var body = document.getElementById('svcBody');
-        if (!card || !body) return;
+        var tab = document.getElementById('tabAutomate');
+        var dot = document.getElementById('tabDot');
+        if (!body || !tab) return;
 
         function esc(s) {
             return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -315,9 +334,12 @@
         }
 
         function render(st) {
-            if (!st || !st.enabled) { card.hidden = true; return; }
-            card.hidden = false;
+            if (!st || !st.enabled) { tab.hidden = true; return; }
+            tab.hidden = false; // the feature is available: reveal its tab
             var login = st.login || {}, boot = st.boot || {}, html = '';
+            // Status dot on the tab: green when the login autostart is already installed.
+            if (dot) dot.hidden = !(login.supported && login.installed);
+
             if (st.blocker) html += '<div class="svc-warn">' + esc(st.blocker) + '</div>';
 
             html += '<div class="svc-row">';
@@ -334,13 +356,14 @@
             html += '</div>';
 
             if (boot.supported) {
-                html += '<details class="svc-adv"><summary>Start at boot, before login (all users) — advanced</summary>'
-                    + '<p class="svc-note">This needs administrator rights, so run these in your own terminal, '
-                    + 'your system will ask for your password. This app never sees it.</p>'
+                html += '<div class="svc-boot">'
+                    + '<h3>Start at boot, before login (all users)</h3>'
+                    + '<p class="svc-note" style="margin-top:0">This needs administrator rights, so run these in your '
+                    + 'own terminal — your system will ask for your password. This app never sees it.</p>'
                     + cmdBlock('Enable', boot.installCommands)
                     + cmdBlock('Disable', boot.uninstallCommands)
                     + (boot.artifactPath ? '<p class="svc-note">Creates <code>' + esc(boot.artifactPath) + '</code></p>' : '')
-                    + '</details>';
+                    + '</div>';
             }
             html += '<p class="svc-note">Detected: ' + esc(st.os) + ' · will run <code>' + esc(st.launchCommand) + '</code></p>';
             body.innerHTML = html;
@@ -373,11 +396,11 @@
                 });
         }
 
-        // Load current status; if the endpoint is absent (older build) the panel stays hidden.
+        // Load current status; if the endpoint is absent (older build) the tab stays hidden.
         fetch('/service/autostart')
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(render)
-            .catch(function () { card.hidden = true; });
+            .catch(function () { tab.hidden = true; });
     })();
 </script>
 </body>

@@ -56,6 +56,16 @@ class WebUiTest {
     }
 
     @Test
+    void runAutomaticallyIsServedAsItsOwnTab() throws Exception {
+        mockMvc.perform(get("/index.html"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-tab=\"automate\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"panel-automate\"")))
+                // the boot instructions are always shown, not hidden behind a collapsible
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("class=\"svc-boot\"")));
+    }
+
+    @Test
     void faviconsAreServed() throws Exception {
         // The browser's automatic /favicon.ico probe now resolves to a real icon.
         mockMvc.perform(get("/favicon.ico")).andExpect(status().isOk());
