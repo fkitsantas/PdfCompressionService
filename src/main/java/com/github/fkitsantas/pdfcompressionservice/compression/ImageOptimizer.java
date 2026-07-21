@@ -402,6 +402,12 @@ final class ImageOptimizer {
             ImageWriteParam param = writer.getDefaultWriteParam();
             param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
             param.setCompressionQuality(quality);
+            // Progressive JPEG: same pixels and quality, but a smaller file (the scans entropy-code
+            // more efficiently). Universally supported by PDF viewers. Only enabled when the writer
+            // supports it, so this never fails on an exotic ImageIO plugin.
+            if (param.canWriteProgressive()) {
+                param.setProgressiveMode(ImageWriteParam.MODE_DEFAULT);
+            }
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             try (MemoryCacheImageOutputStream ios = new MemoryCacheImageOutputStream(out)) {
                 writer.setOutput(ios);

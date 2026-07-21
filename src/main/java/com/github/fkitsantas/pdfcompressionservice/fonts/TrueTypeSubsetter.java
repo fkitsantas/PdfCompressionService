@@ -135,8 +135,14 @@ public final class TrueTypeSubsetter {
             return 0; // shared program: another font dict relies on it, do not touch
         }
         String baseName = usedFont.type0.getName();
-        if (baseName == null || baseName.matches("[A-Z]{6}\\+.+")) {
-            return 0; // unnamed or already subset
+        if (baseName == null) {
+            return 0; // no name to tag the subset with
+        }
+        if (baseName.matches("[A-Z]{6}\\+.+")) {
+            // Already carries a subset tag, but re-subset anyway (max compression): a producer's
+            // subset can still include glyphs this document does not use. Drop the old tag so we
+            // can re-tag; the "only commit if smaller" guard below skips it if there is no gain.
+            baseName = baseName.substring(7);
         }
         Set<Integer> gids = new TreeSet<>(usedFont.usedGids);
         gids.add(0); // always keep .notdef

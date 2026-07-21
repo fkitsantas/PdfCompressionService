@@ -22,7 +22,8 @@ A fidelity-preserving PDF compression microservice (Java 25, Spring Boot 4, Apac
 
 - **Image-aware compression.** Each image is analysed for its *effective rendered DPI* (how many pixels actually land per inch on the page) and downsampled only when it is oversampled for its placement, never blindly.
 - **Fidelity preserving.** Text and vector content are never rasterised. Transparency (soft masks) is retained, colour spaces are preserved (grayscale stays gray, bitonal scans stay 1-bit), and image orientation/aspect ratio are kept exactly.
-- **Content-adaptive codecs.** Photographic images are recompressed as JPEG; line-art and low-colour images use lossless Flate to avoid ringing artefacts; bitonal scans stay CCITT. JPEG2000 (JPXDecode) and JBIG2 images are decoded via bundled ImageIO plugins and recompressed instead of passing through.
+- **Content-adaptive codecs.** Photographic images are recompressed as **progressive** JPEG (smaller at the same quality); line-art and low-colour images use lossless Flate to avoid ringing artefacts; bitonal scans stay CCITT. JPEG2000 (JPXDecode) and JBIG2 images are decoded via bundled ImageIO plugins and recompressed instead of passing through.
+- **Lossless de-duplication.** Byte-identical images embedded as separate objects (e.g. a per-page logo) and byte-identical embedded ICC colour profiles (common when a scanner embeds one per image) are merged into a single shared object.
 - **Font subsetting.** Embedded TrueType fonts are losslessly re-subset to just the glyphs the document actually uses, which shrinks text-heavy documents (guides, reports) that image compression cannot touch. It is conservative, only composite (CIDFontType2) TrueType fonts that are not already subset are altered, text/spacing/appearance are preserved exactly, and any font that cannot be subset provably safely is left as-is.
 - **Safety rails.** A replacement image is only kept if it is genuinely smaller (configurable threshold); otherwise the original is retained. The service never enlarges an image and never mutates your uploaded bytes.
 - **Operational visibility.** Structured, content-free logs (sizes, counts, timing, correlation id) and a `/logs` page.
@@ -365,6 +366,7 @@ All settings live in `src/main/resources/application.properties` and can be over
 | `pdf.compression.recompress-cmyk` | `false` | whether to recompress CMYK images (changes colour space to RGB) |
 | `pdf.compression.deduplicate-images` | `true` | merge byte-identical images embedded as separate objects (e.g. a per-page logo) into one shared object |
 | `pdf.compression.strip-metadata` | `false` | strip XMP/Info metadata (titles, authors, timestamps, producer) from the output (opt-in) |
+| `pdf.compression.strip-private-data` | `false` | strip application-private data not needed to render: `/PieceInfo` (large editor round-trip blobs) and page `/Thumb` thumbnails (opt-in) |
 | `pdf.compression.log-composition` | `true` | after each PDF, log a byte-composition report (images / fonts / vectors / other, including per-font "already subset?") at INFO, visible on `/logs`; diagnostic only, no effect on output |
 | `pdf.compression.subset-fonts` | `true` | losslessly re-subset embedded TrueType fonts to the glyphs actually used (shrinks text-heavy PDFs); conservative and appearance-preserving |
 | `pdf.compression.parallelism` | `0` | per-image resize/encode worker threads; `0` = auto (`availableProcessors()`), `1` = sequential |

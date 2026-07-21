@@ -396,8 +396,13 @@ public class PdfCompressionEngine {
         ImageOptimizer optimizer = new ImageOptimizer(effective);
         ImageProcessingStats stats = processImages(doc, effective, uniqueImages, referencesByImage,
                 usage, optimizer, requestId);
+        // Lossless: merge byte-identical embedded ICC colour profiles (common on many-image scans).
+        IccProfileDeduplicator.deduplicate(doc, requestId);
         if (effective.isStripMetadata()) {
             stripMetadata(doc);
+        }
+        if (effective.isStripPrivateData()) {
+            stripPrivateData(doc);
         }
         if (effective.isSubsetFonts()) {
             // Lossless font subsetting: safe-by-construction (see TrueTypeSubsetter), and
@@ -817,6 +822,21 @@ public class PdfCompressionEngine {
     private static void stripMetadata(PDDocument doc) {
         doc.getDocumentCatalog().getCOSObject().removeItem(COSName.METADATA);
         doc.getDocument().getTrailer().removeItem(COSName.INFO);
+    }
+
+    /**
+     * Removes application-private data not needed to render the page: the {@code /PieceInfo}
+     * private-data dictionaries on the catalog and every page (producers embed large editor
+     * round-trip blobs there), and each page's {@code /Thumb} thumbnail image. Lossless for
+     * the visible content; the removed data is regenerable or editor-only.
+     */
+    private static void stripPrivateData(PDDocument doc) {
+        COSName pieceInfo = COSName.getPDFName("PieceInfo");
+        doc.getDocumentCatalog().getCOSObject().removeItem(pieceInfo);
+        for (PDPage page : doc.getPages()) {
+            page.getCOSObject().removeItem(pieceInfo);
+            page.getCOSObject().removeItem(COSName.getPDFName("Thumb"));
+        }
     }
 
     // ------------------------------------------------------------------

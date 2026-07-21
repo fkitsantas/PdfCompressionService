@@ -48,6 +48,7 @@ public class PdfCompressionProperties {
     private int maxConcurrentCompressions = 0;
     private boolean deduplicateImages = true;
     private boolean stripMetadata = false;
+    private boolean stripPrivateData = false;
     private boolean logComposition = true;
     private boolean subsetFonts = true;
 
@@ -75,6 +76,7 @@ public class PdfCompressionProperties {
         c.maxConcurrentCompressions = this.maxConcurrentCompressions;
         c.deduplicateImages = this.deduplicateImages;
         c.stripMetadata = this.stripMetadata;
+        c.stripPrivateData = this.stripPrivateData;
         c.logComposition = this.logComposition;
         c.subsetFonts = this.subsetFonts;
         return c;
@@ -322,6 +324,22 @@ public class PdfCompressionProperties {
 
     public void setStripMetadata(boolean stripMetadata) {
         this.stripMetadata = stripMetadata;
+    }
+
+    /**
+     * Whether to strip application-private data that is not needed to render the
+     * document (default {@code false}, opt-in). Specifically the {@code /PieceInfo}
+     * dictionaries (private data producers like Illustrator/InDesign embed, often
+     * large) on the catalog and pages, and page {@code /Thumb} thumbnail images
+     * (which viewers regenerate). Removing them is lossless for the visible page
+     * content but discards that editor round-trip data, hence opt-in.
+     */
+    public boolean isStripPrivateData() {
+        return stripPrivateData;
+    }
+
+    public void setStripPrivateData(boolean stripPrivateData) {
+        this.stripPrivateData = stripPrivateData;
     }
 
     /**
