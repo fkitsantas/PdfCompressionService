@@ -49,6 +49,7 @@ public class PdfCompressionProperties {
     private boolean deduplicateImages = true;
     private boolean stripMetadata = false;
     private boolean logComposition = true;
+    private boolean subsetFonts = true;
 
     /**
      * Returns an independent copy carrying the same values, used to derive a
@@ -75,6 +76,7 @@ public class PdfCompressionProperties {
         c.deduplicateImages = this.deduplicateImages;
         c.stripMetadata = this.stripMetadata;
         c.logComposition = this.logComposition;
+        c.subsetFonts = this.subsetFonts;
         return c;
     }
 
@@ -336,5 +338,21 @@ public class PdfCompressionProperties {
 
     public void setLogComposition(boolean logComposition) {
         this.logComposition = logComposition;
+    }
+
+    /**
+     * Whether to subset embedded fonts, re-embedding only the glyphs the document
+     * actually uses (default {@code true}). Lossless and conservative: only
+     * composite (CIDFontType2) TrueType fonts that are not already subset are
+     * touched, and any font that cannot be subset provably safely is left exactly
+     * as-is (see {@code TrueTypeSubsetter}). It shrinks font-heavy documents while
+     * leaving text, spacing and appearance unchanged.
+     */
+    public boolean isSubsetFonts() {
+        return subsetFonts;
+    }
+
+    public void setSubsetFonts(boolean subsetFonts) {
+        this.subsetFonts = subsetFonts;
     }
 }

@@ -34,6 +34,7 @@ import jakarta.annotation.PreDestroy;
 
 import com.github.fkitsantas.pdfcompressionservice.analysis.DocumentComposition;
 import com.github.fkitsantas.pdfcompressionservice.analysis.PdfCompositionAnalyzer;
+import com.github.fkitsantas.pdfcompressionservice.fonts.TrueTypeSubsetter;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSBase;
@@ -397,6 +398,15 @@ public class PdfCompressionEngine {
                 usage, optimizer, requestId);
         if (effective.isStripMetadata()) {
             stripMetadata(doc);
+        }
+        if (effective.isSubsetFonts()) {
+            // Lossless font subsetting: safe-by-construction (see TrueTypeSubsetter), and
+            // isolated so a failure here can never break an otherwise-good image compression.
+            try {
+                new TrueTypeSubsetter().subsetFonts(doc, requestId);
+            } catch (RuntimeException e) {
+                log.debug("requestId={} action=subset-skipped reason={}", requestId, e.getClass().getSimpleName());
+            }
         }
         return new ProcessedDocument(pageCount, stats);
     }

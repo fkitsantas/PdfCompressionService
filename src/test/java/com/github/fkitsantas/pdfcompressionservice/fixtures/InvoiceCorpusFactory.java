@@ -923,4 +923,59 @@ public final class InvoiceCorpusFactory {
         doc.save(out);
         return out.toByteArray();
     }
+
+    /** A common system TrueType font, or {@code null} if none is present (so font tests can skip). */
+    public static java.nio.file.Path systemTrueTypeFont() {
+        String[] candidates = {
+                "/System/Library/Fonts/Supplemental/Arial.ttf",
+                "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+                "/System/Library/Fonts/Supplemental/Verdana.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+                "/Library/Fonts/Arial.ttf"
+        };
+        for (String path : candidates) {
+            java.nio.file.Path p = java.nio.file.Path.of(path);
+            if (java.nio.file.Files.isRegularFile(p)) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * A multi-page, text-heavy PDF with a <b>fully embedded</b> (not subset) TrueType font, the
+     * kind of document where font subsetting is the only meaningful win. Returns {@code null} if
+     * no system TrueType font is available to embed.
+     */
+    public static byte[] fontHeavyDocument(int pageCount) throws IOException {
+        java.nio.file.Path fontFile = systemTrueTypeFont();
+        if (fontFile == null) {
+            return null;
+        }
+        try (PDDocument doc = new PDDocument()) {
+            org.apache.pdfbox.pdmodel.font.PDType0Font font;
+            try (var in = java.nio.file.Files.newInputStream(fontFile)) {
+                font = org.apache.pdfbox.pdmodel.font.PDType0Font.load(doc, in, false); // full embed
+            }
+            for (int p = 0; p < pageCount; p++) {
+                PDPage page = new PDPage(PDRectangle.A4);
+                doc.addPage(page);
+                try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+                    cs.beginText();
+                    cs.setFont(font, 11);
+                    cs.setLeading(15);
+                    cs.newLineAtOffset(50, 780);
+                    for (int line = 0; line < 40; line++) {
+                        cs.showText("The DoctorHand guide, chapter " + line + ": record, review and sign notes.");
+                        cs.newLine();
+                    }
+                    cs.endText();
+                }
+            }
+            return save(doc);
+        }
+    }
 }
