@@ -87,7 +87,8 @@ public final class TrueTypeSubsetter {
                     saved += delta;
                 }
             } catch (Exception e) {
-                log.debug("requestId={} action=subset-font-skipped reason={}", requestId, e.getClass().getSimpleName());
+                log.debug("requestId={} action=subset-font-skipped reason={} detail={}",
+                        requestId, e.getClass().getSimpleName(), e.getMessage());
             }
         }
         if (fontsSubset > 0) {

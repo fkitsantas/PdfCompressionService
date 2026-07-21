@@ -142,10 +142,13 @@ PDF Compression Service ${DISPLAY_VERSION} - Standalone Edition
 ================================================================
 
 WHAT THIS IS
-  A small web service that compresses PDF files by re-encoding their images,
-  while preserving text, vector graphics, transparency and page layout.
-  This bundle is fully self-contained: it includes its own Java runtime, so
-  you do NOT need Java (or anything else) installed to run it.
+  A small web service that shrinks PDF files while preserving how they look:
+  it re-encodes images (progressive JPEG, downsampling to the resolution
+  actually used), subsets embedded fonts to the glyphs actually used, and
+  merges duplicate images and colour profiles - leaving text, vector graphics,
+  transparency and page layout intact. This bundle is fully self-contained: it
+  includes its own Java runtime, so you do NOT need Java (or anything else)
+  installed to run it.
 
 RUNNING IT
   ${RUN_HINT}
@@ -154,31 +157,38 @@ RUNNING IT
   Leave the window/process running while you use it. Stop it with Ctrl+C in
   the terminal, or by closing the process.
 
-COMPRESSING A PDF (from another terminal)
+USING IT - IN A BROWSER (easiest)
+  Open http://localhost:7777 and drag a PDF onto the page; the compressed file
+  downloads back with a size summary. An "Advanced options" panel exposes the
+  per-request settings below, and a "Run automatically" tab can set the service
+  to start on login/boot with one click.
+
+USING IT - FROM A TERMINAL
   curl -X POST -F 'file=@/path/to/input.pdf' \\
        http://localhost:7777/compressPdf --output compressed.pdf
 
-  Replace /path/to/input.pdf with your file. The optimized PDF is written to
-  compressed.pdf in the current folder.
+  Optional per-request overrides (query/form parameters), e.g.:
+    -F 'targetDpi=96'  -F 'jpegQuality=0.6'  -F 'stripMetadata=true'
 
-VIEWING LOGS
-  Open http://localhost:7777/logs in a browser to see recent service logs.
+OTHER PAGES
+  http://localhost:7777/logs             live logs (incl. a per-PDF report of
+                                         where its bytes are: images/fonts/...)
+  http://localhost:7777/version          build identity (version, commit)
+  http://localhost:7777/actuator/health  health / readiness
+  For very large files, POST /jobs then poll GET /jobs/{id} (async).
 
-ADVANCED (optional) - tuning compression
-  You can pass Spring Boot overrides as command-line arguments to the launcher,
-  for example a lower target resolution or a different port:
-    <launcher> --server.port=8080 --pdf.compression.target-dpi=120
+ADVANCED (optional) - tuning, as launcher arguments
+  Append Spring Boot overrides to the launch command, e.g.:
+    <launcher>  --server.port=8080  --pdf.compression.target-dpi=120
 
   Common keys (defaults shown):
-    --pdf.compression.target-dpi=150        image downsample target DPI
-    --pdf.compression.jpeg-quality=0.75     JPEG quality (0.0-1.0)
-    --pdf.compression.max-image-dimension=0 output edge cap in px (0 = no cap)
-    --pdf.compression.strip-metadata=false  drop XMP/Info metadata (opt-in)
+    --pdf.compression.target-dpi=150         image downsample target DPI
+    --pdf.compression.jpeg-quality=0.75      JPEG quality (0.0-1.0)
+    --pdf.compression.max-image-dimension=0  output edge cap in px (0 = no cap)
+    --pdf.compression.subset-fonts=true      subset embedded fonts
+    --pdf.compression.strip-metadata=false   drop XMP/Info metadata (opt-in)
+    --pdf.compression.strip-private-data=false  drop editor blobs/thumbnails (opt-in)
     --server.port=7777
-
-  You can also override any of these per request as query/form parameters on
-  POST /compressPdf (e.g. -F 'targetDpi=96'), and there is a browser UI at
-  http://localhost:7777/ plus an async job API under /jobs.
 
 SUPPORT
   Project: https://github.com/fkitsantas/PdfCompressionService
