@@ -130,11 +130,25 @@ case "$OS" in
     # "Application Not Responding"; LSUIElement makes it an agent instead (no Dock icon, no such
     # flag), and MenuBarTray adds a menu-bar item to open/quit it. It stays runnable pre-login
     # (launchd), so servers still start it after a reboot.
-    APP_PLIST="$BUILD/image/${APP_NAME}.app/Contents/Info.plist"
+    APP_BUNDLE="$BUILD/image/${APP_NAME}.app"
+    APP_PLIST="$APP_BUNDLE/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$APP_PLIST" 2>/dev/null \
       || /usr/libexec/PlistBuddy -c "Set :LSUIElement true" "$APP_PLIST"
     /usr/libexec/PlistBuddy -c "Add :NSHighResolutionCapable bool true" "$APP_PLIST" 2>/dev/null || true
-    cp -R "$BUILD/image/${APP_NAME}.app" "$STAGE/"
+    # jpackage ad-hoc signs the app image, and editing Info.plist above invalidates that
+    # signature. On Apple Silicon an invalid signature makes macOS refuse to open the app as
+    # "damaged", so re-seal it with a fresh ad-hoc signature. (--deep re-signs the bundled
+    # runtime too; ad-hoc "-" needs no developer identity. The app is still unsigned/unnotarized,
+    # so a downloaded copy is quarantined - the INSTRUCTIONS cover clearing that.)
+    if command -v codesign >/dev/null 2>&1; then
+      echo "==> Re-sealing ad-hoc signature after Info.plist edit"
+      codesign --force --deep --sign - "$APP_BUNDLE" \
+        && codesign --verify --deep --strict "$APP_BUNDLE" \
+        || echo "==> WARNING: ad-hoc re-sign/verify failed; the app may open as 'damaged' on Apple Silicon" >&2
+    else
+      echo "==> WARNING: codesign not found; cannot re-seal after Info.plist edit (app may show as 'damaged')" >&2
+    fi
+    cp -R "$APP_BUNDLE" "$STAGE/"
     RUN_HINT='Double-click PdfCompressionService.app, or from a terminal run:
     ./PdfCompressionService.app/Contents/MacOS/PdfCompressionService
 
