@@ -374,6 +374,20 @@ public class PdfCompressionEngine {
     private ProcessedDocument processDocument(PDDocument doc, PdfCompressionProperties effective, String requestId)
             throws IOException {
         int pageCount = doc.getNumberOfPages();
+
+        // An encrypted PDF that still carries its /Encrypt dictionary cannot be written by PDFBox
+        // (COSWriter throws "PDF contains an encryption dictionary ..."). Reaching here means the
+        // file opened WITHOUT a password - a truly password-locked document would have failed to
+        // load and been rejected as 422 - so this is a permission-restricted (owner-password) PDF.
+        // Drop that security so the compressed copy can be saved; the visible content, text, images
+        // and layout are unchanged (only the restriction flags are removed).
+        if (doc.isEncrypted()) {
+            doc.setAllSecurityToBeRemoved(true);
+            log.info("requestId={} action=encryption-removed note=\"input PDF was encrypted but opened "
+                    + "without a password (permission-restricted); its security was removed so the "
+                    + "compressed output could be written - visible content is unchanged\"", requestId);
+        }
+
         Map<COSBase, float[]> usage = analyzeImageUsage(doc, requestId);
 
         Map<COSBase, PDImageXObject> uniqueImages = new LinkedHashMap<>();
