@@ -134,6 +134,21 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!--
+                        Keep tests headless and disable the macOS menu-bar item during the
+                        build: on a developer's GUI session @SpringBootTest would otherwise
+                        place a real status-bar icon for every application context it starts.
+                    -->
+                    <systemPropertyVariables>
+                        <java.awt.headless>true</java.awt.headless>
+                        <pcs.menu-bar.enabled>false</pcs.menu-bar.enabled>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>

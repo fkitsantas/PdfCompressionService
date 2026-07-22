@@ -94,6 +94,18 @@ else
   ICON=""
 fi
 
+# Per-OS JVM options baked into the native launcher.
+JAVA_OPTS=(--java-options "-Xss4m")
+if [ "$(uname -s)" = "Darwin" ]; then
+  # Let AWT initialise (Spring Boot otherwise forces java.awt.headless=true) so the app can
+  # place an item in the macOS menu bar to open/quit it (see MenuBarTray). Paired with the
+  # LSUIElement flag set on Info.plist below, the app runs as a menu-bar agent, not a Dock
+  # window, so macOS never flags it "Application Not Responding". On a Mac with no desktop
+  # session (a launchd daemon before login) AWT auto-detects headless and the menu-bar item
+  # is skipped, so the service still runs unattended after a reboot.
+  JAVA_OPTS+=(--java-options "-Dspring.main.headless=false")
+fi
+
 # ${ICON:+...} keeps this safe under `set -u` and adds no args when ICON is unset;
 # both tokens stay separately quoted so a path with spaces is preserved.
 echo "==> jpackage: assembling native app image"
@@ -106,16 +118,29 @@ jpackage \
   --runtime-image "$BUILD/runtime" \
   --app-version "$BUNDLE_VERSION" \
   ${ICON:+--icon} ${ICON:+"$ICON"} \
-  --java-options "-Xss4m" \
+  "${JAVA_OPTS[@]}" \
   --dest "$BUILD/image"
 
 # --- 3. stage bundle + INSTRUCTIONS for archiving ---------------------------
 OS="$(uname -s)"
 case "$OS" in
   Darwin)
+    # Run as a menu-bar agent, not a Dock window. A windowless Spring Boot server registered
+    # as a foreground Dock app never services an AppKit event loop, so macOS keeps flagging it
+    # "Application Not Responding"; LSUIElement makes it an agent instead (no Dock icon, no such
+    # flag), and MenuBarTray adds a menu-bar item to open/quit it. It stays runnable pre-login
+    # (launchd), so servers still start it after a reboot.
+    APP_PLIST="$BUILD/image/${APP_NAME}.app/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$APP_PLIST" 2>/dev/null \
+      || /usr/libexec/PlistBuddy -c "Set :LSUIElement true" "$APP_PLIST"
+    /usr/libexec/PlistBuddy -c "Add :NSHighResolutionCapable bool true" "$APP_PLIST" 2>/dev/null || true
     cp -R "$BUILD/image/${APP_NAME}.app" "$STAGE/"
     RUN_HINT='Double-click PdfCompressionService.app, or from a terminal run:
     ./PdfCompressionService.app/Contents/MacOS/PdfCompressionService
+
+  It runs in the background and adds an icon to the macOS menu bar (top-right,
+  near the clock). Click it to open the web UI or to quit the service. No Dock
+  window appears - that is intentional (it avoids a false "not responding" flag).
 
   The first time you open it, macOS Gatekeeper may block an unsigned app.
   Either right-click the app and choose "Open", or clear the quarantine flag:

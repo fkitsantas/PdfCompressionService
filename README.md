@@ -58,6 +58,8 @@ Every release ships **self-contained bundles that embed their own Java 25 runtim
         http://localhost:7777/compressPdf --output compressed.pdf
    ```
 
+> **macOS menu-bar app:** the `.app` runs as a background *agent*, not a Dock window: it adds an icon to the menu bar (top-right, near the clock) that you click to open the web UI or **quit** the service. There is deliberately no Dock window — a windowless server registered as a Dock app would otherwise be flagged "Application Not Responding" by macOS. When started before login (e.g. a launchd daemon on a server, see below) there is no desktop session, so it simply runs headless with no menu-bar item.
+
 > **macOS first-launch note:** the bundle is unsigned, so Gatekeeper may block it. Right-click the app and choose **Open**, or clear the quarantine flag once with:
 > ```bash
 > xattr -dr com.apple.quarantine PdfCompressionService.app
