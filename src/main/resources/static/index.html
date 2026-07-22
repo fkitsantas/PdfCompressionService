@@ -225,7 +225,7 @@
 
         <div class="card results" id="resultsCard">
             <h2>Results</h2>
-            <p class="sub">What changed when your PDF was compressed.</p>
+            <p class="sub" id="resultsSub" hidden>What changed when your PDF was compressed.</p>
             <div class="results-empty" id="resultsEmpty">
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-4"></path>
@@ -267,6 +267,7 @@
         var status = document.getElementById('status');
         var resultsEmpty = document.getElementById('resultsEmpty');
         var resultsBody = document.getElementById('resultsBody');
+        var resultsSub = document.getElementById('resultsSub');
         var chosen = null;
 
         function esc(s) {
@@ -336,6 +337,7 @@
 
             resultsBody.innerHTML = html;
             resultsEmpty.hidden = true;
+            resultsSub.hidden = false;
             resultsBody.hidden = false;
 
             var dl = document.getElementById('dlAgain');
@@ -351,6 +353,7 @@
         function resetResults() {
             resultsBody.hidden = true;
             resultsBody.innerHTML = '';
+            resultsSub.hidden = true;
             resultsEmpty.hidden = false;
         }
 
