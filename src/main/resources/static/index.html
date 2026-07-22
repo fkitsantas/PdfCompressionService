@@ -88,6 +88,9 @@
         footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 22px; }
         footer code { background: var(--card); border: 1px solid var(--border); padding: 2px 6px; border-radius: 6px; }
         footer a { color: var(--accent); }
+        .colophon { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.78rem; }
+        .colophon strong { color: var(--fg); font-weight: 600; }
+        .colophon .ver { font-variant-numeric: tabular-nums; }
         nav.menu { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 18px 0 2px; }
         nav.menu a {
             text-decoration: none; color: var(--fg); background: var(--card); border: 1px solid var(--border);
@@ -127,6 +130,15 @@
         .tab-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-left: 7px; vertical-align: middle; }
         .svc-boot { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
         .svc-boot h3 { font-size: 0.95rem; margin: 0 0 4px; }
+        .stat-h { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 18px 0 6px; }
+        .stat-h:first-child { margin-top: 4px; }
+        .kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        .kv .k { color: var(--muted); }
+        .kv .v { text-align: right; word-break: break-all; font-variant-numeric: tabular-nums; }
+        .kv.sub-kv .k { padding-left: 12px; color: var(--muted); opacity: 0.85; }
+        .stat-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+        .stat-dot.up { background: var(--ok); }
+        .stat-dot.down { background: var(--err); }
     </style>
 </head>
 <body>
@@ -137,9 +149,8 @@
         <nav class="menu">
             <a href="#" class="tab active" data-tab="compress">Compress</a>
             <a href="#" class="tab" data-tab="automate" id="tabAutomate" hidden>Run automatically<span class="tab-dot" id="tabDot" hidden title="Enabled"></span></a>
+            <a href="#" class="tab" data-tab="status">Status</a>
             <a href="/logs">Live Logs</a>
-            <a href="/actuator/health" target="_blank" rel="noopener">Health</a>
-            <a href="/version" target="_blank" rel="noopener">Version</a>
         </nav>
     </header>
 
@@ -196,8 +207,17 @@
         <div id="svcBody"></div>
     </div>
 
+    <div class="card" id="panel-status" hidden>
+        <h2>Status</h2>
+        <p class="sub">The running build and its live health.</p>
+        <div id="statusBody" class="stat-body"></div>
+    </div>
+
     <footer>
         Prefer the terminal? <code>curl -F 'file=@in.pdf' /compressPdf --output out.pdf</code> works exactly as before.
+        <div class="colophon">
+            <strong>PDF Compression Service</strong> <span class="ver" id="appVersion"></span> &middot; by Fotios Kitsantas
+        </div>
     </footer>
 </div>
 
@@ -305,10 +325,10 @@
         var tabs = document.querySelectorAll('.menu a.tab');
         function activate(name) {
             tabs.forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-tab') === name); });
-            var compress = document.getElementById('panel-compress');
-            var automate = document.getElementById('panel-automate');
-            if (compress) compress.hidden = name !== 'compress';
-            if (automate) automate.hidden = name !== 'automate';
+            ['compress', 'automate', 'status'].forEach(function (n) {
+                var panel = document.getElementById('panel-' + n);
+                if (panel) panel.hidden = name !== n;
+            });
         }
         tabs.forEach(function (t) {
             t.addEventListener('click', function (e) { e.preventDefault(); activate(t.getAttribute('data-tab')); });
@@ -407,6 +427,88 @@
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(render)
             .catch(function () { tab.hidden = true; });
+    })();
+
+    // Footer colophon: show the running build version (from GET /version).
+    (function () {
+        fetch('/version')
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (v) {
+                if (!v || !v.version || v.version === 'unknown') { return; }
+                var el = document.getElementById('appVersion');
+                el.textContent = 'v' + v.version;
+                var bits = [];
+                if (v.buildNumber) { bits.push('build ' + v.buildNumber); }
+                if (v.gitSha) { bits.push(String(v.gitSha).slice(0, 7)); }
+                if (v.buildTime) { bits.push(v.buildTime); }
+                if (bits.length) { el.title = bits.join('  ·  '); }
+            })
+            .catch(function () {});
+    })();
+
+    // ----- Status panel: render /version and /actuator/health as readable HTML -----
+    (function () {
+        var tab = document.querySelector('.menu a.tab[data-tab="status"]');
+        var body = document.getElementById('statusBody');
+        if (!tab || !body) { return; }
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        }
+        function labelize(s) {
+            return String(s).replace(/([A-Z])/g, ' $1').replace(/[._-]/g, ' ')
+                .replace(/\s+/g, ' ').trim().replace(/^./, function (c) { return c.toUpperCase(); });
+        }
+        function dot(status) {
+            var up = status === 'UP';
+            return '<span class="stat-dot ' + (up ? 'up' : 'down') + '"></span>';
+        }
+        function row(k, v, sub) {
+            return '<div class="kv' + (sub ? ' sub-kv' : '') + '"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>';
+        }
+
+        function load() {
+            body.innerHTML = '<span class="spinner"></span>Loading…';
+            Promise.all([
+                fetch('/version').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+                fetch('/actuator/health').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+            ]).then(function (res) {
+                var v = res[0], h = res[1], html = '';
+
+                html += '<h3 class="stat-h">Build</h3>';
+                if (v && v.version && v.version !== 'unknown') {
+                    html += row('Version', esc('v' + v.version));
+                    if (v.buildNumber) { html += row('Build number', esc(v.buildNumber)); }
+                    if (v.gitSha) { html += row('Commit', esc(String(v.gitSha).slice(0, 12))); }
+                    if (v.buildTime) { html += row('Built', esc(v.buildTime)); }
+                } else {
+                    html += '<p class="svc-note">Development build (no build-info stamped).</p>';
+                }
+
+                html += '<h3 class="stat-h">Health</h3>';
+                if (h && h.status) {
+                    html += row('Overall', dot(h.status) + esc(h.status));
+                    var comps = h.components || {};
+                    Object.keys(comps).forEach(function (name) {
+                        var c = comps[name] || {};
+                        html += row(esc(labelize(name)), dot(c.status) + esc(c.status));
+                    });
+                    var comp = comps.compression;
+                    if (comp && comp.details) {
+                        Object.keys(comp.details).forEach(function (k) {
+                            html += row(esc(labelize(k)), esc(String(comp.details[k])), true);
+                        });
+                    }
+                } else {
+                    html += '<p class="svc-note">Health endpoint unavailable.</p>';
+                }
+                body.innerHTML = html;
+            });
+        }
+
+        tab.addEventListener('click', load);
     })();
 </script>
 </body>

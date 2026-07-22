@@ -66,6 +66,21 @@ class WebUiTest {
     }
 
     @Test
+    void versionAndHealthAreShownInPageNotAsRawJsonLinks() throws Exception {
+        // /version and /actuator/health return JSON; the UI renders them in an in-page
+        // Status tab rather than linking a person straight to raw JSON.
+        mockMvc.perform(get("/index.html"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-tab=\"status\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"panel-status\"")))
+                // the old nav no longer sends users to the raw JSON endpoints
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("href=\"/version\""))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("href=\"/actuator/health\""))));
+    }
+
+    @Test
     void faviconsAreServed() throws Exception {
         // The browser's automatic /favicon.ico probe resolves to the logo-derived icon.
         mockMvc.perform(get("/favicon.ico")).andExpect(status().isOk());
