@@ -97,13 +97,15 @@ fi
 # Per-OS JVM options baked into the native launcher.
 JAVA_OPTS=(--java-options "-Xss4m")
 if [ "$(uname -s)" = "Darwin" ]; then
-  # Let AWT initialise (Spring Boot otherwise forces java.awt.headless=true) so the app can
-  # place an item in the macOS menu bar to open/quit it (see MenuBarTray). Paired with the
-  # LSUIElement flag set on Info.plist below, the app runs as a menu-bar agent, not a Dock
-  # window, so macOS never flags it "Application Not Responding". On a Mac with no desktop
-  # session (a launchd daemon before login) AWT auto-detects headless and the menu-bar item
-  # is skipped, so the service still runs unattended after a reboot.
-  JAVA_OPTS+=(--java-options "-Dspring.main.headless=false")
+  # Let AWT initialise so the app can place an item in the macOS menu bar to open/quit it
+  # (see MenuBarTray). This MUST be -Djava.awt.headless=false, not spring.main.headless=false:
+  # Spring Boot's configureHeadlessProperty() runs before it binds spring.main.headless, so it
+  # would force java.awt.headless=true first and the menu-bar item would never appear. Paired
+  # with the LSUIElement flag set on Info.plist below, the app runs as a menu-bar agent, not a
+  # Dock window, so macOS never flags it "Application Not Responding". On a Mac with no desktop
+  # session (a launchd daemon before login) the tray init fails and MenuBarTray skips it
+  # gracefully, so the service still runs unattended after a reboot.
+  JAVA_OPTS+=(--java-options "-Djava.awt.headless=false")
 fi
 
 # ${ICON:+...} keeps this safe under `set -u` and adds no args when ICON is unset;
