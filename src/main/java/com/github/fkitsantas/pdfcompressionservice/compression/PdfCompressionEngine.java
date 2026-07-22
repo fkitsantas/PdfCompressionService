@@ -345,7 +345,7 @@ public class PdfCompressionEngine {
     }
 
     /** Immutable summary of the shared processing pipeline. */
-    private record ProcessedDocument(int pageCount, ImageProcessingStats stats) {
+    private record ProcessedDocument(int pageCount, ImageProcessingStats stats, int fontsSubset) {
     }
 
     /**
@@ -418,16 +418,17 @@ public class PdfCompressionEngine {
         if (effective.isStripPrivateData()) {
             stripPrivateData(doc);
         }
+        int fontsSubset = 0;
         if (effective.isSubsetFonts()) {
             // Lossless font subsetting: safe-by-construction (see TrueTypeSubsetter), and
             // isolated so a failure here can never break an otherwise-good image compression.
             try {
-                new TrueTypeSubsetter().subsetFonts(doc, requestId);
+                fontsSubset = new TrueTypeSubsetter().subsetFonts(doc, requestId).fontsSubset();
             } catch (RuntimeException e) {
                 log.debug("requestId={} action=subset-skipped reason={}", requestId, e.getClass().getSimpleName());
             }
         }
-        return new ProcessedDocument(pageCount, stats);
+        return new ProcessedDocument(pageCount, stats, fontsSubset);
     }
 
     /**
@@ -496,7 +497,7 @@ public class PdfCompressionEngine {
                 stats.inspected(), stats.downsampled(), stats.recompressed(), stats.unchanged(), useOriginal);
         return new CompressionResult(requestId, originalLength, compressedLength, savedBytes, savedPercent,
                 processed.pageCount(), stats.inspected(), stats.downsampled(), stats.recompressed(),
-                stats.unchanged(), profile, durationMillis, useOriginal, bytes);
+                stats.unchanged(), processed.fontsSubset(), profile, durationMillis, useOriginal, bytes);
     }
 
     // ------------------------------------------------------------------

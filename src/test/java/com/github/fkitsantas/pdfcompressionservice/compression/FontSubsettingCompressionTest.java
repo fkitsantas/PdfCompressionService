@@ -28,6 +28,7 @@ class FontSubsettingCompressionTest {
                 .compress(pdf, "guide.pdf", "req-font-heavy");
 
         assertThat(result.isReturnedOriginal()).as("subsetting should pay off on a font-heavy doc").isFalse();
+        assertThat(result.getFontsSubset()).as("the embedded fonts were re-subset").isPositive();
         assertThat(result.getCompressedBytes())
                 .as("font subsetting materially shrinks the file")
                 .isLessThan((long) (result.getOriginalBytes() * 0.6));
@@ -50,6 +51,7 @@ class FontSubsettingCompressionTest {
                 .compress(pdf, "guide.pdf", "req-simple-heavy");
 
         assertThat(result.isReturnedOriginal()).as("simple-font subsetting should pay off").isFalse();
+        assertThat(result.getFontsSubset()).as("the simple TrueType font was re-subset").isPositive();
         assertThat(result.getCompressedBytes())
                 .as("simple TrueType subsetting materially shrinks the file")
                 .isLessThan((long) (result.getOriginalBytes() * 0.6));

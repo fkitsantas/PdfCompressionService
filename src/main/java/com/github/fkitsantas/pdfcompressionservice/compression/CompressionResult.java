@@ -11,7 +11,8 @@ package com.github.fkitsantas.pdfcompressionservice.compression;
  * <p><b>Constructor parameter order (fixed contract):</b>
  * {@code requestId, originalBytes, compressedBytes, savedBytes, savedPercent,
  * pageCount, imagesInspected, imagesDownsampled, imagesRecompressed,
- * imagesUnchanged, profile, durationMillis, returnedOriginal, compressedPdf}.
+ * imagesUnchanged, fontsSubset, profile, durationMillis, returnedOriginal,
+ * compressedPdf}.
  */
 public final class CompressionResult {
 
@@ -25,6 +26,7 @@ public final class CompressionResult {
     private final int imagesDownsampled;
     private final int imagesRecompressed;
     private final int imagesUnchanged;
+    private final int fontsSubset;
     private final String profile;
     private final long durationMillis;
     private final boolean returnedOriginal;
@@ -40,6 +42,7 @@ public final class CompressionResult {
                               int imagesDownsampled,
                               int imagesRecompressed,
                               int imagesUnchanged,
+                              int fontsSubset,
                               String profile,
                               long durationMillis,
                               boolean returnedOriginal,
@@ -54,6 +57,7 @@ public final class CompressionResult {
         this.imagesDownsampled = imagesDownsampled;
         this.imagesRecompressed = imagesRecompressed;
         this.imagesUnchanged = imagesUnchanged;
+        this.fontsSubset = fontsSubset;
         this.profile = profile;
         this.durationMillis = durationMillis;
         this.returnedOriginal = returnedOriginal;
@@ -100,6 +104,11 @@ public final class CompressionResult {
         return imagesUnchanged;
     }
 
+    /** Number of embedded fonts that were re-subset to just the glyphs actually used. */
+    public int getFontsSubset() {
+        return fontsSubset;
+    }
+
     public String getProfile() {
         return profile;
     }
@@ -130,6 +139,7 @@ public final class CompressionResult {
                 ", imagesDownsampled=" + imagesDownsampled +
                 ", imagesRecompressed=" + imagesRecompressed +
                 ", imagesUnchanged=" + imagesUnchanged +
+                ", fontsSubset=" + fontsSubset +
                 ", profile='" + profile + '\'' +
                 ", durationMillis=" + durationMillis +
                 ", returnedOriginal=" + returnedOriginal +

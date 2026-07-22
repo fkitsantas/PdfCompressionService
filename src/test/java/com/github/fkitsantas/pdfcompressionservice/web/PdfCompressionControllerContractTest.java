@@ -87,6 +87,7 @@ class PdfCompressionControllerContractTest {
                 .andExpect(header().exists("X-Images-Recompressed"))
                 .andExpect(header().exists("X-Images-Downsampled"))
                 .andExpect(header().exists("X-Images-Unchanged"))
+                .andExpect(header().exists("X-Fonts-Subset"))
                 .andExpect(header().exists("X-Profile"))
                 .andExpect(header().exists("X-Duration-Millis"))
                 .andExpect(header().string("X-Returned-Original", org.hamcrest.Matchers.matchesPattern("true|false")))

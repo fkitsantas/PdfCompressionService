@@ -306,6 +306,7 @@
             var recompressed = num('X-Images-Recompressed', 0);
             var downsampled = num('X-Images-Downsampled', 0);
             var unchanged = num('X-Images-Unchanged', 0);
+            var fontsSubset = num('X-Fonts-Subset', 0);
             var profile = prettyProfile(g('X-Profile'));
             var ms = num('X-Duration-Millis', 0);
             var returnedOriginal = g('X-Returned-Original') === 'true';
@@ -323,6 +324,7 @@
             if (recompressed) html += kvRow('recompressed', String(recompressed), true);
             if (downsampled) html += kvRow('downsampled', String(downsampled), true);
             if (unchanged) html += kvRow('left unchanged', String(unchanged), true);
+            if (fontsSubset) html += kvRow('Fonts subset', String(fontsSubset));
             if (profile) html += kvRow('Settings', profile);
             html += kvRow('Time', prettyDuration(ms));
             html += '</div>';

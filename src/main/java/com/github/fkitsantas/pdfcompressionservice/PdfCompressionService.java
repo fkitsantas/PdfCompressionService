@@ -151,6 +151,7 @@ public class PdfCompressionService {
             headers.add("X-Images-Downsampled", Integer.toString(result.getImagesDownsampled()));
             headers.add("X-Images-Recompressed", Integer.toString(result.getImagesRecompressed()));
             headers.add("X-Images-Unchanged", Integer.toString(result.getImagesUnchanged()));
+            headers.add("X-Fonts-Subset", Integer.toString(result.getFontsSubset()));
             headers.add("X-Profile", result.getProfile());
             headers.add("X-Duration-Millis", Long.toString(result.getDurationMillis()));
             headers.add("X-Returned-Original", Boolean.toString(result.isReturnedOriginal()));
