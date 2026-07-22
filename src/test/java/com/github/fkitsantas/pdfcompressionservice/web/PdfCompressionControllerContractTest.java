@@ -72,6 +72,32 @@ class PdfCompressionControllerContractTest {
     }
 
     @Test
+    void exposesCompressionStatsAsResponseHeadersForTheBrowserUi() throws Exception {
+        byte[] pdf = InvoiceCorpusFactory.multipleLargeInvoiceImages(2);
+        MockMultipartFile file = new MockMultipartFile("file", "invoice.pdf", "application/pdf", pdf);
+
+        MvcResult result = mockMvc.perform(multipart("/compressPdf").file(file))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("X-Original-Bytes"))
+                .andExpect(header().exists("X-Compressed-Bytes"))
+                .andExpect(header().exists("X-Saved-Bytes"))
+                .andExpect(header().exists("X-Saved-Percent"))
+                .andExpect(header().exists("X-Page-Count"))
+                .andExpect(header().exists("X-Images-Inspected"))
+                .andExpect(header().exists("X-Images-Recompressed"))
+                .andExpect(header().exists("X-Images-Downsampled"))
+                .andExpect(header().exists("X-Images-Unchanged"))
+                .andExpect(header().exists("X-Profile"))
+                .andExpect(header().exists("X-Duration-Millis"))
+                .andExpect(header().string("X-Returned-Original", org.hamcrest.Matchers.matchesPattern("true|false")))
+                .andReturn();
+
+        // Values are the real stats, so the UI can render them verbatim.
+        assertThat(Integer.parseInt(result.getResponse().getHeader("X-Page-Count"))).isEqualTo(2);
+        assertThat(Long.parseLong(result.getResponse().getHeader("X-Original-Bytes"))).isEqualTo(pdf.length);
+    }
+
+    @Test
     void outputReopensSuccessfullyWithPdfBox() throws Exception {
         byte[] pdf = InvoiceCorpusFactory.grayscaleImage();
         byte[] compressed = postCompress(pdf);

@@ -66,6 +66,15 @@ class WebUiTest {
     }
 
     @Test
+    void compressTabIsTwoColumnsWithAResultsCard() throws Exception {
+        mockMvc.perform(get("/index.html"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("class=\"compress-grid\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"resultsCard\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"resultsBody\"")));
+    }
+
+    @Test
     void versionAndHealthAreShownInPageNotAsRawJsonLinks() throws Exception {
         // /version and /actuator/health return JSON; the UI renders them in an in-page
         // Status tab rather than linking a person straight to raw JSON.

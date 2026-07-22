@@ -28,7 +28,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px;
         }
-        .app { width: 100%; max-width: 640px; }
+        .app { width: 100%; max-width: 920px; }
         header { text-align: center; margin-bottom: 28px; }
         header h1 { font-size: 1.6rem; margin: 0 0 6px; letter-spacing: -0.02em; }
         header h1 img {
@@ -85,6 +85,27 @@
             border-radius: 50%; display: inline-block; vertical-align: -3px; margin-right: 8px; animation: spin .8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        /* Compress tab: two columns - form on the left, results on the right. */
+        .compress-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+        .compress-grid[hidden] { display: none; }
+        /* The single-card tabs stay comfortably narrow within the wider app shell. */
+        #panel-automate, #panel-status { max-width: 560px; margin-left: auto; margin-right: auto; }
+        .results h2 { margin: 0 0 4px; font-size: 1.1rem; }
+        .results .sub { margin: 0 0 16px; }
+        .results-empty { color: var(--muted); text-align: center; padding: 40px 12px; font-size: 0.9rem; }
+        .results-empty svg { width: 38px; height: 38px; stroke: var(--drop-border); margin: 0 auto 12px; display: block; }
+        .result-note { margin-top: 14px; font-size: 0.85rem; color: var(--muted); }
+        .result-note.kept { color: var(--ok); font-weight: 600; }
+        .dl-btn {
+            margin-top: 18px; width: 100%; padding: 10px; border-radius: 10px; cursor: pointer;
+            background: transparent; color: var(--accent); border: 1px solid var(--drop-border);
+            font-weight: 600; font-size: 0.9rem;
+        }
+        .dl-btn:hover { background: var(--drop); }
+        @media (max-width: 760px) {
+            .app { max-width: 640px; }
+            .compress-grid { grid-template-columns: 1fr; }
+        }
         footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 22px; }
         footer code { background: var(--card); border: 1px solid var(--border); padding: 2px 6px; border-radius: 6px; }
         footer a { color: var(--accent); }
@@ -154,51 +175,65 @@
         </nav>
     </header>
 
-    <div class="card" id="panel-compress">
-        <div class="drop" id="drop" role="button" tabindex="0" aria-label="Choose or drop a PDF">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-            <div><strong>Choose a PDF</strong> or drag it here</div>
-            <div class="hint">The file is compressed and downloaded back to you.</div>
-        </div>
-        <input type="file" id="file" class="file" accept="application/pdf,.pdf">
-        <div class="selected" id="selected">
-            <span class="name" id="fileName"></span>
-            <span class="size" id="fileSize"></span>
-        </div>
-
-        <details>
-            <summary>Advanced options</summary>
-            <div class="grid">
-                <div class="field">
-                    <label for="targetDpi">Target DPI (blank = default 150)</label>
-                    <input type="number" id="targetDpi" min="1" max="2400" placeholder="150">
-                </div>
-                <div class="field">
-                    <label for="jpegQuality">JPEG quality 0.0-1.0 (blank = 0.75)</label>
-                    <input type="number" id="jpegQuality" min="0" max="1" step="0.05" placeholder="0.75">
-                </div>
-                <div class="field">
-                    <label for="maxImageDimension">Max image edge px (0 = no cap)</label>
-                    <input type="number" id="maxImageDimension" min="0" placeholder="0">
-                </div>
-                <div class="field check">
-                    <input type="checkbox" id="deduplicateImages" checked>
-                    <label for="deduplicateImages">Deduplicate identical images</label>
-                </div>
-                <div class="field check">
-                    <input type="checkbox" id="stripMetadata">
-                    <label for="stripMetadata">Strip metadata (title, author, ...)</label>
-                </div>
+    <div id="panel-compress" class="compress-grid">
+        <div class="card">
+            <div class="drop" id="drop" role="button" tabindex="0" aria-label="Choose or drop a PDF">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <div><strong>Choose a PDF</strong> or drag it here</div>
+                <div class="hint">The file is compressed and downloaded back to you.</div>
             </div>
-        </details>
+            <input type="file" id="file" class="file" accept="application/pdf,.pdf">
+            <div class="selected" id="selected">
+                <span class="name" id="fileName"></span>
+                <span class="size" id="fileSize"></span>
+            </div>
 
-        <button class="go" id="go" disabled>Compress PDF</button>
+            <details>
+                <summary>Advanced options</summary>
+                <div class="grid">
+                    <div class="field">
+                        <label for="targetDpi">Target DPI (blank = default 150)</label>
+                        <input type="number" id="targetDpi" min="1" max="2400" placeholder="150">
+                    </div>
+                    <div class="field">
+                        <label for="jpegQuality">JPEG quality 0.0-1.0 (blank = 0.75)</label>
+                        <input type="number" id="jpegQuality" min="0" max="1" step="0.05" placeholder="0.75">
+                    </div>
+                    <div class="field">
+                        <label for="maxImageDimension">Max image edge px (0 = no cap)</label>
+                        <input type="number" id="maxImageDimension" min="0" placeholder="0">
+                    </div>
+                    <div class="field check">
+                        <input type="checkbox" id="deduplicateImages" checked>
+                        <label for="deduplicateImages">Deduplicate identical images</label>
+                    </div>
+                    <div class="field check">
+                        <input type="checkbox" id="stripMetadata">
+                        <label for="stripMetadata">Strip metadata (title, author, ...)</label>
+                    </div>
+                </div>
+            </details>
 
-        <div class="status" id="status"></div>
+            <button class="go" id="go" disabled>Compress PDF</button>
+
+            <div class="status" id="status"></div>
+        </div>
+
+        <div class="card results" id="resultsCard">
+            <h2>Results</h2>
+            <p class="sub">What changed when your PDF was compressed.</p>
+            <div class="results-empty" id="resultsEmpty">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-4"></path>
+                </svg>
+                Compress a PDF and the details of what was optimized appear here.
+            </div>
+            <div id="resultsBody" hidden></div>
+        </div>
     </div>
 
     <div class="card svc" id="panel-automate" hidden>
@@ -230,7 +265,92 @@
         var fileSize = document.getElementById('fileSize');
         var go = document.getElementById('go');
         var status = document.getElementById('status');
+        var resultsEmpty = document.getElementById('resultsEmpty');
+        var resultsBody = document.getElementById('resultsBody');
         var chosen = null;
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        }
+        function kvRow(k, v, sub) {
+            return '<div class="kv' + (sub ? ' sub-kv' : '') + '"><span class="k">' + esc(k)
+                + '</span><span class="v">' + esc(v) + '</span></div>';
+        }
+        function prettyProfile(p) {
+            // "dpi=150,q=0.75" -> "150 DPI · JPEG quality 0.75"
+            if (!p) return '';
+            return p.split(',').map(function (seg) {
+                var kv = seg.split('=');
+                if (kv[0] === 'dpi') return kv[1] + ' DPI';
+                if (kv[0] === 'q') return 'JPEG quality ' + kv[1];
+                return kv.length === 2 ? kv[0] + ' ' + kv[1] : seg;
+            }).join('  ·  ');
+        }
+        function prettyDuration(ms) {
+            return ms >= 1000 ? (ms / 1000).toFixed(2) + ' s' : ms + ' ms';
+        }
+
+        function showResults(headers, originalSize, blob) {
+            var g = function (n) { return headers ? headers.get(n) : null; };
+            var num = function (n, fb) { var v = parseInt(g(n), 10); return isNaN(v) ? fb : v; };
+
+            var orig = num('X-Original-Bytes', originalSize);
+            var comp = num('X-Compressed-Bytes', blob.size);
+            var savedBytes = num('X-Saved-Bytes', Math.max(0, orig - comp));
+            var pct = parseFloat(g('X-Saved-Percent'));
+            if (isNaN(pct)) pct = orig > 0 ? Math.max(0, (1 - comp / orig) * 100) : 0;
+            var pages = g('X-Page-Count');
+            var inspected = num('X-Images-Inspected', 0);
+            var recompressed = num('X-Images-Recompressed', 0);
+            var downsampled = num('X-Images-Downsampled', 0);
+            var unchanged = num('X-Images-Unchanged', 0);
+            var profile = prettyProfile(g('X-Profile'));
+            var ms = num('X-Duration-Millis', 0);
+            var returnedOriginal = g('X-Returned-Original') === 'true';
+
+            var html = '<div class="result">'
+                + '<div class="box"><div class="v">' + humanSize(orig) + '</div><div class="k">Original</div></div>'
+                + '<div class="box"><div class="v">' + humanSize(comp) + '</div><div class="k">Compressed</div></div>'
+                + '<div class="box"><div class="v saved">' + pct.toFixed(1) + '%</div><div class="k">Smaller</div></div>'
+                + '</div>';
+
+            html += '<div style="margin-top:16px">';
+            html += kvRow('Space saved', humanSize(savedBytes));
+            if (pages) html += kvRow('Pages', pages);
+            html += kvRow('Images inspected', String(inspected));
+            if (recompressed) html += kvRow('recompressed', String(recompressed), true);
+            if (downsampled) html += kvRow('downsampled', String(downsampled), true);
+            if (unchanged) html += kvRow('left unchanged', String(unchanged), true);
+            if (profile) html += kvRow('Settings', profile);
+            html += kvRow('Time', prettyDuration(ms));
+            html += '</div>';
+
+            if (returnedOriginal) {
+                html += '<div class="result-note kept">This PDF was already optimal, so the original was returned unchanged.</div>';
+            }
+            html += '<button class="dl-btn" id="dlAgain">Download again</button>';
+
+            resultsBody.innerHTML = html;
+            resultsEmpty.hidden = true;
+            resultsBody.hidden = false;
+
+            var dl = document.getElementById('dlAgain');
+            if (dl) dl.addEventListener('click', function () {
+                var u = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = u; a.download = 'optimized.pdf';
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+            });
+        }
+
+        function resetResults() {
+            resultsBody.hidden = true;
+            resultsBody.innerHTML = '';
+            resultsEmpty.hidden = false;
+        }
 
         function humanSize(bytes) {
             if (bytes < 1024) return bytes + ' B';
@@ -282,9 +402,11 @@
             form.append('stripMetadata', document.getElementById('stripMetadata').checked);
 
             go.disabled = true;
+            resetResults();
             status.className = 'status show';
-            status.innerHTML = '<span class="spinner"></span>Compressing ' + chosen.name + ' ...';
+            status.innerHTML = '<span class="spinner"></span>Compressing ' + esc(chosen.name) + ' ...';
             var originalSize = chosen.size;
+            var respHeaders = null;
 
             fetch('/compressPdf', { method: 'POST', body: form })
                 .then(function (resp) {
@@ -294,27 +416,24 @@
                                 + (err && err.requestId ? ' (request ' + err.requestId + ')' : ''));
                         }, function () { throw new Error('Compression failed (HTTP ' + resp.status + ')'); });
                     }
+                    respHeaders = resp.headers;
                     return resp.blob();
                 })
                 .then(function (blob) {
+                    // Download the optimized file, then show the detailed breakdown on the right.
                     var url = URL.createObjectURL(blob);
                     var a = document.createElement('a');
                     a.href = url; a.download = 'optimized.pdf';
                     document.body.appendChild(a); a.click(); a.remove();
                     setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
 
-                    var saved = originalSize > 0 ? Math.max(0, (1 - blob.size / originalSize) * 100) : 0;
-                    status.className = 'status show';
-                    status.innerHTML =
-                        '<div class="result">'
-                        + '<div class="box"><div class="v">' + humanSize(originalSize) + '</div><div class="k">Original</div></div>'
-                        + '<div class="box"><div class="v">' + humanSize(blob.size) + '</div><div class="k">Compressed</div></div>'
-                        + '<div class="box"><div class="v saved">' + saved.toFixed(1) + '%</div><div class="k">Saved</div></div>'
-                        + '</div>';
+                    status.className = 'status';
+                    status.innerHTML = '';
+                    showResults(respHeaders, originalSize, blob);
                 })
                 .catch(function (e) {
                     status.className = 'status show';
-                    status.innerHTML = '<span class="error">' + (e.message || 'Compression failed') + '</span>';
+                    status.innerHTML = '<span class="error">' + esc(e.message || 'Compression failed') + '</span>';
                 })
                 .finally(function () { go.disabled = false; });
         });

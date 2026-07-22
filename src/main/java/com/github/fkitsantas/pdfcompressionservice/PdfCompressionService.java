@@ -140,6 +140,20 @@ public class PdfCompressionService {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentDisposition(ContentDisposition.attachment().filename("optimized.pdf").build());
+            // Compression stats for the browser UI to render (the body stays the PDF). Same-origin
+            // fetch can read these directly; harmless to any other client that ignores them.
+            headers.add("X-Original-Bytes", Long.toString(result.getOriginalBytes()));
+            headers.add("X-Compressed-Bytes", Long.toString(result.getCompressedBytes()));
+            headers.add("X-Saved-Bytes", Long.toString(result.getSavedBytes()));
+            headers.add("X-Saved-Percent", Double.toString(result.getSavedPercent()));
+            headers.add("X-Page-Count", Integer.toString(result.getPageCount()));
+            headers.add("X-Images-Inspected", Integer.toString(result.getImagesInspected()));
+            headers.add("X-Images-Downsampled", Integer.toString(result.getImagesDownsampled()));
+            headers.add("X-Images-Recompressed", Integer.toString(result.getImagesRecompressed()));
+            headers.add("X-Images-Unchanged", Integer.toString(result.getImagesUnchanged()));
+            headers.add("X-Profile", result.getProfile());
+            headers.add("X-Duration-Millis", Long.toString(result.getDurationMillis()));
+            headers.add("X-Returned-Original", Boolean.toString(result.isReturnedOriginal()));
             return ResponseEntity.ok()
                     .headers(headers)
                     .contentType(MediaType.APPLICATION_PDF)
