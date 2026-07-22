@@ -28,7 +28,7 @@ A fidelity-preserving PDF compression microservice (Java 25, Spring Boot 4, Apac
 - **Fidelity preserving.** Text and vector content are never rasterised. Transparency (soft masks) is retained, colour spaces are preserved (grayscale stays gray, bitonal scans stay 1-bit), and image orientation/aspect ratio are kept exactly.
 - **Content-adaptive codecs.** Photographic images are recompressed as **progressive** JPEG (smaller at the same quality); line-art and low-colour images use lossless Flate to avoid ringing artefacts; bitonal scans stay CCITT. JPEG2000 (JPXDecode) and JBIG2 images are decoded via bundled ImageIO plugins and recompressed instead of passing through.
 - **Lossless de-duplication.** Byte-identical images embedded as separate objects (e.g. a per-page logo) and byte-identical embedded ICC colour profiles (common when a scanner embeds one per image) are merged into a single shared object.
-- **Font subsetting.** Embedded TrueType fonts are losslessly re-subset to just the glyphs the document actually uses, which shrinks text-heavy documents (guides, reports) that image compression cannot touch. It is conservative, only composite (CIDFontType2) TrueType fonts that are not already subset are altered, text/spacing/appearance are preserved exactly, and any font that cannot be subset provably safely is left as-is.
+- **Font subsetting.** Embedded TrueType fonts are losslessly re-subset to just the glyphs the document actually uses, which shrinks text-heavy documents (guides, reports) that image compression cannot touch. Both **composite (CIDFontType2)** fonts (subset by glyph id, with a rewritten `/CIDToGIDMap`) and **simple, non-symbolic** TrueType fonts (subset by unicode code point so their `cmap` still resolves, the common full-embedded Arial/Times case) are handled. It is conservative, only fonts that are not already subset are altered, text/spacing/appearance are preserved exactly, and any font that cannot be subset provably safely is left as-is.
 - **Safety rails.** A replacement image is only kept if it is genuinely smaller (configurable threshold); otherwise the original is retained. The service never enlarges an image and never mutates your uploaded bytes.
 - **Operational visibility.** Structured, content-free logs (sizes, counts, timing, correlation id) and a `/logs` page.
 - **Browser UI.** A self-contained drag-drop page at `http://localhost:7777/` for compressing a file without the terminal; the `curl`/API flow is unchanged and remains the primary interface.
@@ -358,6 +358,7 @@ All settings live in `src/main/resources/application.properties` and can be over
 | `server.port` | `7777` | HTTP port |
 | `spring.servlet.multipart.max-file-size` | `100MB` | maximum upload size |
 | `spring.servlet.multipart.max-request-size` | `100MB` | maximum request size |
+| `pdf.service.autostart.enabled` | `true` | enable the **Run automatically** panel and its `/service/autostart` endpoints (one-click per-user start-at-login); set `false` to disable the feature entirely (e.g. locked-down deployments) |
 | `pdf.compression.target-dpi` | `150` | target resolution images are downsampled toward |
 | `pdf.compression.jpeg-quality` | `0.75` | JPEG quality for photographic images (0.0–1.0) |
 | `pdf.compression.max-image-dimension` | `0` | optional cap on a re-encoded image's longest edge, in pixels (`0` = no cap; not an acceptance limit, any input size is processed) |
@@ -392,7 +393,7 @@ java -jar PdfCompressionService-*.jar --server.port=8080 --pdf.compression.targe
 2. **Measure usage.** A content-stream engine records the maximum on-page size each image is drawn at, across every page, form XObject, and annotation appearance, yielding each image's *effective DPI*.
 3. **Decide per image.** Skip masks, tiny, or already-small images; otherwise compute a single uniform downscale factor (never enlarging), pick a codec by content type, and high-quality bicubic-resample if warranted.
 4. **Verify the win.** Keep the replacement only when it meets the reduction threshold; shared images are optimized once and re-referenced, so deduplicated resources stay deduplicated.
-5. **Subset fonts.** Walk every text-rendering site (pages, forms, Type3, annotation appearances) to find the glyphs actually drawn, then re-subset each eligible embedded TrueType font to just those glyphs, rewriting its program and `/CIDToGIDMap`. Any font that cannot be done provably safely is skipped, so appearance and text are preserved.
+5. **Subset fonts.** Walk every text-rendering site (pages, forms, Type3, annotation appearances) to find the glyphs actually drawn, then re-subset each eligible embedded TrueType font to just those glyphs, rewriting its program. Composite (CIDFontType2) fonts are subset by glyph id with a renumbered `/CIDToGIDMap`; simple, non-symbolic fonts are subset by unicode code point so their `cmap` still resolves. Any font that cannot be done provably safely is skipped, so appearance and text are preserved.
 6. **Save** to a fresh byte stream and return statistics (bytes saved, images inspected/downsampled/recompressed/unchanged, timing).
 
 ## Development
